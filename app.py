@@ -304,11 +304,20 @@ def delete_user(user_id):
 @app.route("/parcels")
 @login_required
 def list_parcels():
-    parcels = execute_query(
-        "SELECT P.parcel_id, P.address, P.city, P.state, P.area_sqm, U.username as owner_name, P.owner_user_id FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id",
-        fetch_all=True
-    )
-    return render_template("parcels.html", parcels=parcels)
+    status_filter = request.args.get("status", "All")
+    
+    base_sql = """
+        SELECT P.parcel_id, P.address, P.city, P.state, P.area_sqm, P.is_for_sale, 
+               U.username as owner_name, P.owner_user_id 
+        FROM Parcels P 
+        JOIN Users U ON P.owner_user_id = U.user_id
+    """
+    
+    if status_filter == "For Sale":
+        base_sql += " WHERE P.is_for_sale = TRUE"
+        
+    parcels = execute_query(base_sql, fetch_all=True)
+    return render_template("parcels.html", parcels=parcels, status_filter=status_filter)
 
 @app.route("/parcels/<parcel_id>")
 @login_required
@@ -547,6 +556,6 @@ def deposit_funds():
         flash("Invalid deposit amount.", "danger")
     
     return redirect(url_for('view_user', user_id=current_user.id))
-        
+
 if __name__ == "__main__":
     app.run(debug=True)
