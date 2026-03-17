@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from valuation import get_land_price_analytics, calculate_fair_option_premium
 from db import execute_query
-
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
@@ -104,7 +103,6 @@ def logout():
     flash("You have been logged out.", "info")
     return redirect(url_for('login'))
 
-
 def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
     features = []
     for r in rows:
@@ -136,7 +134,7 @@ def api_parcels_geojson():
     params = []
     sql = """
       SELECT P.parcel_id, P.address, P.city, P.state, P.base_price_inr, P.owner_user_id,
-              U.username as owner_name, P.latitude, P.longitude
+             U.username as owner_name, P.latitude, P.longitude
       FROM Parcels P
       LEFT JOIN Users U ON P.owner_user_id = U.user_id
       WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL
@@ -152,7 +150,7 @@ def api_parcels_geojson():
 def api_options_geojson():
     sql = """
       SELECT O.option_id, O.parcel_id, O.strike_inr, O.premium_inr, O.issue_date, O.expiry_date, O.status,
-              P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name
+             P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name
       FROM Options O
       JOIN Parcels P ON O.parcel_id = P.parcel_id
       LEFT JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id
@@ -193,7 +191,7 @@ def api_heat_by_city():
 def format_inr(amount):
     if amount is None:
         return "N/A"
-    return f"₹{amount:,.0f}"
+    return f"INR {amount:,.0f}"
 
 app.jinja_env.filters["inr"] = format_inr
 app.jinja_env.filters["date"] = lambda d: d.strftime("%Y-%m-%d") if isinstance(d, (datetime, date)) else d
@@ -510,6 +508,25 @@ def settle_options():
 
     flash(f"Settlement run complete. {len(settlement_results)} options processed.", "info")
     return render_template("settlement.html", results=settlement_results)
+
+@app.route('/deposit', methods=['POST'])
+@login_required
+def deposit_funds():
+    amount = request.form.get('amount', type=float)
+    if amount and amount > 0:
+        success = execute_query(
+            "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
+            (amount, current_user.id)
+        )
+        if success:
+            flash(f"Successfully deposited INR {amount:,.2f} into your account.", "success")
+            current_user.balance_cash += amount 
+        else:
+            flash("Database error during deposit.", "danger")
+    else:
+        flash("Invalid deposit amount.", "danger")
+    
+    return redirect(url_for('view_user', user_id=current_user.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
