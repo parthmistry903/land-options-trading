@@ -16,56 +16,48 @@
     </div>
 </form>
 
-<table class="table table-sm table-striped table-hover">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Parcel Location</th>
-            <th>Strike (INR)</th>
-            <th>Premium (INR)</th>
-            {# REMOVED: <th><span class="text-danger">Recommended Premium</span></th> #}
-            <th>Expiry Date</th>
-            <th>Seller</th>
-            <th>Buyer</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for option in options %}
-        <tr>
-            <td>{{ option.option_id }}</td>
-            <td>
-                <a href="{{ url_for('view_parcel', parcel_id=option.parcel_id) }}">
-                    {{ option.address }}, <strong>{{ option.city }}</strong>
-                </a>
-            </td>
-            <td>{{ option.strike_inr | inr }}</td>
-            <td><strong>{{ option.premium_inr | inr }}</strong></td>
-            {# REMOVED:
-            <td>
-                {% if option.status == 'Open' and option.recommended_premium is not None %}
-                <span class="badge bg-danger">{{ option.recommended_premium | inr }}</span>
-                {% else %}
-                N/A
-                {% endif %}
-            </td>
-            #}
-            <td>{{ option.expiry_date | date }}</td>
-            <td><a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a></td>
-            <td>
-                {% if option.buyer_name %}
-                <a href="{{ url_for('view_user', user_id=option.buyer_user_id) }}">{{ option.buyer_name }}</a>
-                {% else %}
-                N/A
-                {% endif %}
-            </td>
-            <td>
-                <span
-                    class="badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning{% else %}secondary{% endif %}">{{
-                    option.status }}</span>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-responsive">
+    <table class="table table-sm table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Parcel Location</th>
+                <th>Strike (INR)</th>
+                <th>Premium (INR)</th>
+                <th>Expiry Date</th>
+                <th>Seller</th>
+                <th>Buyer</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for option in options %}
+            <tr>
+                <td>{{ option.option_id }}</td>
+                <td>
+                    <a href="{{ url_for('view_parcel', parcel_id=option.parcel_id) }}">
+                        {{ option.address }}, <strong>{{ option.city }}</strong>
+                    </a>
+                </td>
+                <td>{{ option.strike_inr | inr }}</td>
+                <td><strong>{{ option.premium_inr | inr }}</strong></td>
+                <td>{{ option.expiry_date | date }}</td>
+                <td><a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a></td>
+                <td>
+                    {% if option.buyer_name %}
+                    <a href="{{ url_for('view_user', user_id=option.buyer_user_id) }}">{{ option.buyer_name }}</a>
+                    {% else %}
+                    N/A
+                    {% endif %}
+                </td>
+                <td>
+                    <span
+                        class="badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning{% else %}secondary{% endif %}">{{
+                        option.status }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
