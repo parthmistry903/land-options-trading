@@ -548,5 +548,16 @@ def deposit_funds():
     
     return redirect(url_for('view_user', user_id=current_user.id))
 
+@app.route('/run-my-sql')
+def run_my_sql():
+    try:
+        # 1. Add the missing column
+        execute_query("ALTER TABLE Parcels ADD COLUMN is_for_sale BOOLEAN DEFAULT FALSE;")
+        # 2. Randomly list 15% of parcels for sale
+        execute_query("UPDATE Parcels SET is_for_sale = TRUE WHERE RAND() < 0.15;")
+        return "<h1>SUCCESS! The database is updated.</h1>"
+    except Exception as e:
+        return f"<h1>It might have already run, or there is an error:</h1> <p>{e}</p>"
+        
 if __name__ == "__main__":
     app.run(debug=True)
