@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Trade History{% endblock %}
+{% block content %}
+<h1 class="mb-4">Trade History</h1>
+
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>Trade ID</th>
+            <th>Date</th>
+            <th>Option ID</th>
+            <th>Parcel</th>
+            <th>Trade Price</th>
+            <th>Buyer</th>
+            <th>Seller</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for trade in trades %}
+        <tr>
+            <td>{{ trade.trade_id }}</td>
+            <td>{{ trade.trade_date | date }}</td>
+            <td><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a></td>
+            <td>{{ trade.address }} ({{ trade.city }})</td>
+            <td><strong>{{ trade.trade_price_inr | inr }}</strong></td>
+            <td><a href="{{ url_for('view_user', user_id=trade.buyer_user_id) }}">{{ trade.buyer_name }}</a></td>
+            <td><a href="{{ url_for('view_user', user_id=trade.seller_user_id) }}">{{ trade.seller_name }}</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
