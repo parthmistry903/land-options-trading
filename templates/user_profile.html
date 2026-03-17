@@ -33,30 +33,32 @@
 </div>
 
 <h2 class="mt-4">Trading History</h2>
-<table class="table table-sm table-bordered">
-    <thead>
-        <tr>
-            <th>Trade ID</th>
-            <th>Date</th>
-            <th>Option ID</th>
-            <th>Parcel</th>
-            <th>Price</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for trade in trades %}
-        <tr>
-            <td>{{ trade.trade_id }}</td>
-            <td>{{ trade.trade_date | date }}</td>
-            <td><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a></td>
-            <td>{{ trade.address }}, {{ trade.city }}</td>
-            <td>{{ trade.trade_price_inr | inr }}</td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="5" class="text-center text-muted">No trades found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-responsive">
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th>Trade ID</th>
+                <th>Date</th>
+                <th>Option ID</th>
+                <th>Parcel</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trade in trades %}
+            <tr>
+                <td>{{ trade.trade_id }}</td>
+                <td>{{ trade.trade_date | date }}</td>
+                <td><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a></td>
+                <td>{{ trade.address }}, {{ trade.city }}</td>
+                <td>{{ trade.trade_price_inr | inr }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center text-muted">No trades found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
