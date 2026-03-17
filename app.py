@@ -368,16 +368,36 @@ def generate_price_chart(history_data, analytics):
     plt.close(fig)
     return f"data:image/png;base64,{base64.b64encode(buf.getbuffer()).decode('ascii')}"
 
+@app.route("/toggle_sale/<parcel_id>", methods=["POST"])
+@login_required
+def toggle_sale(parcel_id):
+    parcel = execute_query("SELECT owner_user_id, is_for_sale FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
+    
+    if not parcel or parcel['owner_user_id'] != current_user.id:
+        flash("Unauthorized or parcel not found.", "danger")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+    
+    new_status = not parcel['is_for_sale']
+    execute_query("UPDATE Parcels SET is_for_sale = %s WHERE parcel_id = %s", (new_status, parcel_id))
+    
+    status_text = "listed for sale" if new_status else "removed from sale"
+    flash(f"Parcel {parcel_id} successfully {status_text}.", "success")
+    return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
 @app.route("/buy_parcel/<parcel_id>", methods=["POST"])
 @login_required
 def buy_parcel(parcel_id):
     buyer_id = current_user.id 
 
-    parcel = execute_query("SELECT base_price_inr, owner_user_id FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
+    parcel = execute_query("SELECT base_price_inr, owner_user_id, is_for_sale FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
     buyer = execute_query("SELECT balance_cash FROM Users WHERE user_id = %s", (buyer_id,), fetch_all=False)
 
     if not parcel or not buyer:
         flash("Transaction failed: Parcel or Buyer not found.", "danger")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+    if not parcel.get('is_for_sale'):
+        flash("Transaction failed: The owner has not listed this parcel for sale.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
     price = parcel["base_price_inr"]
@@ -388,14 +408,14 @@ def buy_parcel(parcel_id):
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
     if buyer["balance_cash"] < price:
-        flash(f"Transaction failed: Insufficient balance. Required: {format_inr(price)}", "danger")
+        flash(f"Transaction failed: Insufficient balance. Required: INR {price:,.0f}", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
     execute_query("UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s", (price, buyer_id))
     execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (price, seller_id))
-    execute_query("UPDATE Parcels SET owner_user_id = %s WHERE parcel_id = %s", (buyer_id, parcel_id))
+    execute_query("UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE WHERE parcel_id = %s", (buyer_id, parcel_id))
 
-    flash(f"Parcel {parcel_id} successfully purchased for {format_inr(price)}!", "success")
+    flash(f"Parcel {parcel_id} successfully purchased for INR {price:,.0f}!", "success")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
 @app.route("/options")
