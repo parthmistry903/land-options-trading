@@ -128,8 +128,10 @@
                     <li class="nav-item me-3 text-light">
                         <strong><i class="bi bi-wallet2"></i> {{ current_user.balance_cash | inr }}</strong>
                     </li>
-                    <li class="nav-item me-3 text-light">
-                        Welcome, {{ current_user.username }}
+                    <li class="nav-item me-3">
+                        <a href="{{ url_for('view_user', user_id=current_user.id) }}" class="text-light text-decoration-none fw-bold text-decoration-underline">
+                            Welcome, {{ current_user.username }}
+                        </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
