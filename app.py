@@ -130,9 +130,12 @@ def api_heat_by_city():
     return jsonify(rows)
 
 def format_inr(amount):
-    if amount is None:
+    if amount is None or amount == "":
         return "N/A"
-    return f"INR {amount:,.0f}"
+    try:
+        return f"INR {float(amount):,.0f}"
+    except ValueError:
+        return "N/A"
 
 app.jinja_env.filters["inr"] = format_inr
 app.jinja_env.filters["date"] = lambda d: d.strftime("%Y-%m-%d") if isinstance(d, (datetime, date)) else d
@@ -263,7 +266,8 @@ def toggle_sale(parcel_id):
     if not parcel or parcel['owner_user_id'] != current_user.id:
         flash("Unauthorized or parcel not found.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
-    new_status = not parcel['is_for_sale']
+    current_status = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
+    new_status = not current_status
     execute_query("UPDATE Parcels SET is_for_sale = %s WHERE parcel_id = %s", (new_status, parcel_id))
     status_text = "listed for sale" if new_status else "removed from sale"
     flash(f"Parcel {parcel_id} successfully {status_text}.", "success")
