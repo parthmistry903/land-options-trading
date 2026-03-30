@@ -1,5 +1,5 @@
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import Error, ClientFlag
 import os
 
 DB_CONFIG = {
@@ -9,6 +9,7 @@ DB_CONFIG = {
     "user": os.environ.get("DB_USER", "avnadmin"),
     "password": os.environ.get("DB_PASSWORD", "AVNS_N-rJ1JffZJx7M5rsQg2"),
     "ssl_disabled": False,
+    "client_flags": [ClientFlag.FOUND_ROWS]
 }
 
 def get_db_connection():
