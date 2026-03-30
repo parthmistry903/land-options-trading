@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Parcel: {{ parcel.address }}{% endblock %}
 {% block content %}
-<h1 class="mb-4">{{ parcel.address }} ({{ parcel.city }})</h1>
-<div class="row">
-    <div class="col-md-5">
-        <div class="card mb-4">
+<h1 class="mb-4 fs-3">{{ parcel.address }} ({{ parcel.city }})</h1>
+<div class="row g-4">
+    <div class="col-12 col-lg-5">
+        <div class="card shadow-sm h-100">
             <div class="card-header bg-dark text-white">Parcel & Valuation Info</div>
             <div class="card-body">
                 <p><strong>Parcel ID:</strong> {{ parcel.parcel_id }}</p>
@@ -12,43 +12,40 @@
                 <p><strong>Location:</strong> {{ parcel.city }}, {{ parcel.state }}</p>
                 <p><strong>Owner:</strong> <a href="{{ url_for('view_user', user_id=parcel.owner_user_id) }}">{{ parcel.owner_name }}</a></p>
                 <hr>
-                <p><strong>Current Price (Latest):</strong> <span class="text-primary fs-5">{{ current_price | inr }}</span></p>
-
+                <p><strong>Current Price:</strong> <span class="text-primary fs-4">{{ current_price | inr }}</span></p>
                 {% if forecasted_price %}
                 <p><strong><span class="text-danger">Forecasted Next Price:</span></strong>
                     <span class="fs-5">{{ forecasted_price | inr }}</span>
-                    <small>(Linear Regression 30-Day)</small>
+                    <small class="d-block text-muted mt-1">(Linear Regression 30-Day)</small>
                 </p>
                 {% else %}
                 <p class="text-muted">Not enough data to generate forecast.</p>
                 {% endif %}
-
-                <a href="{{ url_for('list_options') }}?parcel_id={{ parcel.parcel_id }}" class="btn btn-warning mt-2 mb-3 w-100">
-                    <i class="bi bi-search"></i> View Options for this Parcel
+                <a href="{{ url_for('list_options') }}?search={{ parcel.parcel_id }}" class="btn btn-warning mt-3 w-100 fw-bold">
+                    <i class="bi bi-search"></i> View Options Market
                 </a>
-
                 <hr>
-                <h5 class="mt-3">Property Status</h5>
+                <h5 class="mt-3 fs-6 fw-bold text-uppercase text-muted">Property Status</h5>
                 {% if current_user.is_authenticated %}
                     {% if current_user.id == parcel.owner_user_id %}
                         <form method="POST" action="{{ url_for('toggle_sale', parcel_id=parcel.parcel_id) }}">
                             {% if parcel.is_for_sale %}
-                                <p class="text-success fw-bold">Currently Listed for Sale</p>
-                                <button type="submit" class="btn btn-warning w-100">Delist Property</button>
+                                <div class="alert alert-success py-2 mb-2 text-center fw-bold">Currently Listed for Sale</div>
+                                <button type="submit" class="btn btn-outline-danger w-100">Delist Property</button>
                             {% else %}
-                                <p class="text-muted">Not Listed for Sale</p>
+                                <div class="alert alert-secondary py-2 mb-2 text-center text-muted">Not Listed for Sale</div>
                                 <button type="submit" class="btn btn-success w-100">List Property for Sale</button>
                             {% endif %}
                         </form>
                     {% else %}
                         {% if parcel.is_for_sale %}
                             <form method="POST" action="{{ url_for('buy_parcel', parcel_id=parcel.parcel_id) }}">
-                                <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Confirm purchase for {{ current_price | inr }}?');">
+                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase for {{ current_price | inr }}?');">
                                     Buy Property Now
                                 </button>
                             </form>
                         {% else %}
-                            <button type="button" class="btn btn-secondary w-100" disabled>Owner has not listed for sale</button>
+                            <button type="button" class="btn btn-secondary w-100 py-2" disabled>Owner has not listed for sale</button>
                         {% endif %}
                     {% endif %}
                 {% else %}
@@ -57,14 +54,16 @@
             </div>
         </div>
     </div>
-    <div class="col-md-7">
-        <div class="card mb-4 shadow">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <div class="col-12 col-lg-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-dark text-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
                 <span>Price History & Analytics</span>
-                <small class="text-light">Click legend to toggle lines</small>
+                <small class="text-light mt-1 mt-sm-0 opacity-75" style="font-size: 0.8rem;">Click legend to toggle lines</small>
             </div>
-            <div class="card-body">
-                <canvas id="priceChart" width="400" height="220"></canvas>
+            <div class="card-body p-2 p-sm-4">
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="priceChart"></canvas>
+                </div>
                 <script type="application/json" id="chartDataJson">
                     {{ chart_data | tojson | safe }}
                 </script>
@@ -73,16 +72,13 @@
                     document.addEventListener("DOMContentLoaded", function() {
                         const chartData = JSON.parse(document.getElementById('chartDataJson').textContent);
                         if (chartData.dates.length === 0) {
-                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-4">No price history data available to plot.</p>';
+                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5 pt-5">No price history data available to plot.</p>';
                             return;
                         }
-
                         const ctx = document.getElementById('priceChart').getContext('2d');
-                        
                         const forecastPoints = new Array(chartData.actual.length - 1).fill(null);
                         forecastPoints.push(chartData.actual[chartData.actual.length - 1]);
                         forecastPoints.push(chartData.forecast);
-
                         new Chart(ctx, {
                             type: 'line',
                             data: {
@@ -133,14 +129,17 @@
                             },
                             options: {
                                 responsive: true,
+                                maintainAspectRatio: false,
                                 interaction: { mode: 'index', intersect: false },
                                 plugins: {
-                                    legend: { labels: { usePointStyle: true } }
+                                    legend: { 
+                                        position: 'bottom',
+                                        labels: { usePointStyle: true, boxWidth: 8, padding: 15 } 
+                                    }
                                 },
                                 scales: {
-                                    y: { 
-                                        ticks: { callback: (val) => '₹' + val.toLocaleString() }
-                                    }
+                                    x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                                    y: { ticks: { callback: (val) => '₹' + val.toLocaleString() } }
                                 }
                             }
                         });
