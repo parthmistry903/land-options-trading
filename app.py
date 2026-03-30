@@ -183,29 +183,13 @@ def api_options_geojson():
 @login_required
 def api_heat_by_city():
     sql = """
-      SELECT city, AVG(base_price_inr) as avg_price, COUNT(*) as n_parcels
+      SELECT city, AVG(base_price_inr) as avg_price, COUNT(*) as count, MAX(latitude) as lat, MAX(longitude) as lon
       FROM Parcels
       WHERE latitude IS NOT NULL AND longitude IS NOT NULL
       GROUP BY city
     """
     rows = execute_query(sql, fetch_all=True)
-    results = []
-    for r in rows:
-        city = r["city"]
-        coord = execute_query(
-            "SELECT latitude, longitude FROM Parcels WHERE city = %s AND latitude IS NOT NULL LIMIT 1",
-            (city,), fetch_all=False,
-        )
-        if not coord:
-            continue
-        results.append({
-            "city": city,
-            "lat": coord["latitude"],
-            "lon": coord["longitude"],
-            "avg_price": r["avg_price"],
-            "count": r["n_parcels"],
-        })
-    return jsonify(results)
+    return jsonify(rows)
 
 def format_inr(amount):
     if amount is None:
@@ -465,7 +449,7 @@ def list_options():
 
     if where_clauses:
         base_sql += " WHERE " + " AND ".join(where_clauses)
-    base_sql += " ORDER BY O.expiry_date ASC"
+    base_sql += " ORDER BY O.expiry_date ASC LIMIT 50"
 
     options = execute_query(base_sql, tuple(params), fetch_all=True)
     return render_template("options.html", options=options, status_filter=status_filter)
@@ -517,7 +501,7 @@ def list_trades():
         JOIN Parcels P ON O.parcel_id = P.parcel_id
         JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id
         JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id
-        ORDER BY T.trade_date DESC
+        ORDER BY T.trade_date DESC LIMIT 50
         """, fetch_all=True)
     return render_template("trades.html", trades=trades)
 
