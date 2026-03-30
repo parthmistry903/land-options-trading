@@ -224,9 +224,9 @@ def delete_user(user_id):
 def list_parcels():
     status_filter = request.args.get("status", "All")
     search_query = request.args.get("search", "").strip()
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int))
     per_page = 50
-    offset = (page - 1) * per_page
+    
     where_clauses, params = [], []
     if status_filter == "For Sale":
         where_clauses.append("P.is_for_sale = TRUE")
@@ -235,8 +235,13 @@ def list_parcels():
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern])
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-    total = execute_query("SELECT COUNT(*) as total FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id" + where_sql, tuple(params), fetch_all=False)["total"]
-    total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+    
+    total_result = execute_query("SELECT COUNT(*) as total FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id" + where_sql, tuple(params), fetch_all=False)
+    total = total_result["total"] if total_result else 0
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    
     sql = f"SELECT P.*, U.username as owner_name FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id {where_sql} ORDER BY P.parcel_id ASC LIMIT %s OFFSET %s"
     parcels = execute_query(sql, tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("parcels.html", parcels=parcels, status_filter=status_filter, search_query=search_query, page=page, total_pages=total_pages)
@@ -278,7 +283,11 @@ def toggle_sale(parcel_id):
 def buy_parcel(parcel_id):
     buyer_id = current_user.id
     parcel = execute_query("SELECT base_price_inr, owner_user_id, is_for_sale FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
-    if not parcel or not parcel.get('is_for_sale') or buyer_id == parcel["owner_user_id"]:
+    if not parcel:
+        flash("Transaction failed: Parcel not found.", "danger")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+    is_for_sale = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
+    if not is_for_sale or buyer_id == parcel["owner_user_id"]:
         flash("Transaction failed: Parcel not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
     price = parcel["base_price_inr"]
@@ -299,9 +308,9 @@ def buy_parcel(parcel_id):
 def list_options():
     status_filter = request.args.get("status", "Open")
     search_query = request.args.get("search", "").strip()
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int))
     per_page = 50
-    offset = (page - 1) * per_page
+    
     base_sql = "SELECT O.*, P.address, P.city, U_Seller.username AS seller_name, U_Buyer.username AS buyer_name FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id"
     params, where_clauses = [], []
     if status_filter != "All":
@@ -312,22 +321,25 @@ def list_options():
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
     count_sql = "SELECT COUNT(*) as total FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id" + where_sql
     total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
-    total_records = total_records_result["total"] if total_records_result else 0
-    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    total = total_records_result["total"] if total_records_result else 0
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    
     final_sql = base_sql + where_sql + " ORDER BY O.expiry_date ASC LIMIT %s OFFSET %s"
-    data_params = tuple(params) + (per_page, offset)
-    options = execute_query(final_sql, data_params, fetch_all=True)
+    options = execute_query(final_sql, tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("options.html", options=options, status_filter=status_filter, search_query=search_query, page=page, total_pages=total_pages)
 
 @app.route("/buy_option/<option_id>", methods=["POST"])
 @login_required
 def buy_option(option_id):
     buyer_id = current_user.id
-    option = execute_query("SELECT premium_inr, seller_user_id, status FROM Options WHERE option_id = %s", (option_id,), fetch_all=False)
+    option = execute_query("SELECT premium_inr, seller_user_id, status FROM Options WHERE option_id = %s AND expiry_date >= CURDATE()", (option_id,), fetch_all=False)
     if not option or option["status"] != "Open" or buyer_id == option["seller_user_id"]:
-        flash("Trade failed: Option unavailable.", "danger")
+        flash("Trade failed: Option unavailable or expired.", "danger")
         return redirect(url_for("list_options"))
     premium = option["premium_inr"]
     seller_id = option["seller_user_id"]
@@ -348,9 +360,9 @@ def buy_option(option_id):
 @login_required
 def list_trades():
     search_query = request.args.get("search", "").strip()
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int))
     per_page = 50
-    offset = (page - 1) * per_page
+    
     base_sql = "SELECT T.*, O.option_id, P.address, P.city, U_Buyer.username as buyer_name, U_Seller.username as seller_name FROM Trades T JOIN Options O ON T.option_id = O.option_id JOIN Parcels P ON O.parcel_id = P.parcel_id JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id"
     params, where_clauses = [], []
     if search_query:
@@ -358,13 +370,16 @@ def list_trades():
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
     count_sql = "SELECT COUNT(*) as total FROM Trades T JOIN Options O ON T.option_id = O.option_id JOIN Parcels P ON O.parcel_id = P.parcel_id JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id" + where_sql
     total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
-    total_records = total_records_result["total"] if total_records_result else 0
-    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    total = total_records_result["total"] if total_records_result else 0
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    
     final_sql = base_sql + where_sql + " ORDER BY T.trade_date DESC LIMIT %s OFFSET %s"
-    data_params = tuple(params) + (per_page, offset)
-    trades = execute_query(final_sql, data_params, fetch_all=True)
+    trades = execute_query(final_sql, tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("trades.html", trades=trades, search_query=search_query, page=page, total_pages=total_pages)
 
 @app.route("/settle_options", methods=["GET", "POST"])
@@ -375,30 +390,32 @@ def settle_options():
         return redirect(url_for("index"))
     expired_options = execute_query("SELECT O.option_id, O.parcel_id, O.strike_inr, O.buyer_user_id, O.seller_user_id, P.base_price_inr FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id WHERE O.status = 'Traded' AND O.expiry_date <= CURDATE()", fetch_all=True)
     settlement_results = []
-    queries = []
+    success_count = 0
     for option in expired_options:
         latest_price_record = execute_query("SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 1", (option["parcel_id"],), fetch_all=False)
         settlement_price = latest_price_record["price_inr"] if latest_price_record else option["base_price_inr"]
         strike = option["strike_inr"]
         payout = 0
         status_update = "Expired OTM"
+        single_option_queries = []
         if settlement_price > strike:
             payout = settlement_price - strike
             status_update = "Expired ITM"
-            queries.append(("UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s", (payout, option["seller_user_id"])))
-            queries.append(("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (payout, option["buyer_user_id"])))
-        queries.append(("UPDATE Options SET status = %s WHERE option_id = %s", (status_update, option["option_id"])))
-        settlement_results.append({
-            "option_id": option["option_id"], "settlement_price": settlement_price,
-            "strike": strike, "payout": payout, "result": status_update
-        })
-    if queries:
-        if execute_transaction(queries):
-            flash(f"Settlement run complete. {len(settlement_results)} options processed.", "success")
-        else:
-            flash("Settlement engine encountered a critical error. Rolled back.", "danger")
+            single_option_queries.append(("UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s", (payout, option["seller_user_id"])))
+            single_option_queries.append(("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (payout, option["buyer_user_id"])))
+        single_option_queries.append(("UPDATE Options SET status = %s WHERE option_id = %s", (status_update, option["option_id"])))
+        if execute_transaction(single_option_queries):
+            success_count += 1
+            settlement_results.append({
+                "option_id": option["option_id"], "settlement_price": settlement_price,
+                "strike": strike, "payout": payout, "result": status_update
+            })
+    if success_count > 0:
+        flash(f"Settlement run complete. {success_count} options processed successfully.", "success")
+    elif expired_options:
+        flash("Settlement engine encountered errors on some options.", "warning")
     else:
-        flash("No expired, traded options found to settle.", "info")
+        flash("No valid expired options were found to settle.", "info")
     return render_template("settlement.html", results=settlement_results)
 
 @app.route('/deposit', methods=['POST'])
