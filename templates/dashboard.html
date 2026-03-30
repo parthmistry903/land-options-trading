@@ -2,49 +2,51 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <h1 class="mb-4">Dashboard</h1>
-
-<div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card bg-info custom text-white h-100">
-            <div class="card-body">
-                <h5 class="card-title">Open Options 📈</h5>
-                <p class="card-text fs-1">{{ open_options_count }}</p>
-                <a href="{{ url_for('list_options') }}" class="btn btn-light btn-sm">View Market</a>
+<div class="row g-4">
+    <div class="col-12 col-md-4">
+        <div class="card bg-info custom text-white h-100 shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title text-uppercase fw-bold opacity-75">Open Options 📈</h5>
+                <p class="card-text display-4 fw-bold mt-auto mb-4">{{ open_options_count }}</p>
+                <a href="{{ url_for('list_options') }}" class="btn btn-light mt-auto fw-bold text-dark w-100">View Market</a>
             </div>
         </div>
     </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card bg-secondary custom text-white h-100">
-            <div class="card-body">
-                <h5 class="card-title">System Statistics ⚙️</h5>
-                <ul class="list-unstyled mb-0">
-                    <li><strong class="text-warning">Users:</strong> <span class="float-end">{{ stats.users_count
-                            }}</span></li>
-                    <li><strong class="text-warning">Parcels:</strong> <span class="float-end">{{ stats.parcels_count
-                            }}</span></li>
-                    <li><strong class="text-warning">Options (Total):</strong> <span class="float-end">{{
-                            stats.total_options_count }}</span></li>
-                    <li><strong class="text-warning">Trades Executed:</strong> <span class="float-end">{{
-                            stats.trades_count }}</span></li>
-                    <li><strong class="text-warning">Price History Records:</strong> <span class="float-end">{{
-                            stats.price_history_count }}</span></li>
+    <div class="col-12 col-md-4">
+        <div class="card bg-secondary custom text-white h-100 shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title text-uppercase fw-bold opacity-75 mb-4">System Statistics ⚙️</h5>
+                <ul class="list-group list-group-flush bg-transparent mb-0 flex-grow-1">
+                    <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
+                        <strong class="text-warning opacity-75">Users</strong> <span class="fs-5 fw-bold">{{ stats.users_count }}</span>
+                    </li>
+                    <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
+                        <strong class="text-warning opacity-75">Parcels</strong> <span class="fs-5 fw-bold">{{ stats.parcels_count }}</span>
+                    </li>
+                    <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
+                        <strong class="text-warning opacity-75">Options (Total)</strong> <span class="fs-5 fw-bold">{{ stats.total_options_count }}</span>
+                    </li>
+                    <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
+                        <strong class="text-warning opacity-75">Trades Executed</strong> <span class="fs-5 fw-bold">{{ stats.trades_count }}</span>
+                    </li>
+                    <li class="list-group-item bg-transparent text-white border-0 d-flex justify-content-between align-items-center px-0 pb-0">
+                        <strong class="text-warning opacity-75">Price Records</strong> <span class="fs-5 fw-bold">{{ stats.price_history_count }}</span>
+                    </li>
                 </ul>
             </div>
         </div>
     </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card bg-success custom text-white h-100">
-            <div class="card-body">
-                <h5 class="card-title">Top 5 Users (by Cash) 💰</h5>
-                <ul class="list-unstyled">
+    <div class="col-12 col-md-4">
+        <div class="card bg-success custom text-white h-100 shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title text-uppercase fw-bold opacity-75 mb-3">Top 5 Users 💰</h5>
+                <ul class="list-group list-group-flush bg-transparent">
                     {% for user in users %}
-                    <li>
-                        <a href="{{ url_for('view_user', user_id=user.user_id) }}" class="text-white">
+                    <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0 py-2 {% if loop.last %}border-0 pb-0{% endif %}">
+                        <a href="{{ url_for('view_user', user_id=user.user_id) }}" class="text-white text-decoration-none fw-bold text-truncate me-2" style="max-width: 50%;">
                             {{ user.username }}
                         </a>
-                        <span class="float-end">{{ user.balance_cash | inr }}</span>
+                        <span class="badge bg-white text-success rounded-pill">{{ user.balance_cash | inr }}</span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -52,8 +54,8 @@
         </div>
     </div>
 </div>
-
-<h2 class="mt-4">End-of-Cycle Accounting </h2>
-<p>To finalize options contracts and settle all obligations, navigate to the <b>Settlement Engine</b> link in the
-    header. This process updates user cash balances.</p>
+<div class="mt-5 bg-light p-4 rounded shadow-sm border" data-bs-theme="light">
+    <h3 class="h5 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>End-of-Cycle Accounting</h3>
+    <p class="text-muted mb-0">To finalize options contracts and settle all obligations, navigate to the <a href="{{ url_for('settle_options') }}" class="fw-bold text-decoration-none">Settlement Engine</a>. This process automatically evaluates expiries and updates user cash balances.</p>
+</div>
 {% endblock %}
