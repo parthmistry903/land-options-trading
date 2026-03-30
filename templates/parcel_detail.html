@@ -59,52 +59,87 @@
     </div>
     <div class="col-md-7">
         <div class="card mb-4 shadow">
-            <div class="card-header bg-dark text-white">Price History & Forecast</div>
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Price History & Analytics</span>
+                <small class="text-light">Click legend to toggle lines</small>
+            </div>
             <div class="card-body">
-                <canvas id="priceChart" width="400" height="200"></canvas>
+                <canvas id="priceChart" width="400" height="220"></canvas>
                 <script type="application/json" id="chartDataJson">
                     {{ chart_data | tojson | safe }}
                 </script>
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
                     document.addEventListener("DOMContentLoaded", function() {
-                        const rawData = document.getElementById('chartDataJson').textContent;
-                        const chartData = JSON.parse(rawData);
-
+                        const chartData = JSON.parse(document.getElementById('chartDataJson').textContent);
                         if (chartData.dates.length === 0) {
                             document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-4">No price history data available to plot.</p>';
                             return;
                         }
 
                         const ctx = document.getElementById('priceChart').getContext('2d');
+                        
+                        const forecastPoints = new Array(chartData.actual.length - 1).fill(null);
+                        forecastPoints.push(chartData.actual[chartData.actual.length - 1]);
+                        forecastPoints.push(chartData.forecast);
+
                         new Chart(ctx, {
                             type: 'line',
                             data: {
                                 labels: chartData.dates,
-                                datasets: [{
-                                    label: 'Actual Price (INR)',
-                                    data: chartData.prices,
-                                    borderColor: '#3772FF',
-                                    backgroundColor: 'rgba(55, 114, 255, 0.1)',
-                                    borderWidth: 2,
-                                    pointRadius: 3,
-                                    fill: true,
-                                    tension: 0.2
-                                }]
+                                datasets: [
+                                    {
+                                        label: 'Actual Price',
+                                        data: chartData.actual,
+                                        borderColor: '#0d6efd',
+                                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                        borderWidth: 3,
+                                        pointRadius: 4,
+                                        fill: true,
+                                        order: 1
+                                    },
+                                    {
+                                        label: 'LR Trend',
+                                        data: chartData.trend,
+                                        borderColor: '#198754',
+                                        borderDash: [5, 5],
+                                        borderWidth: 2,
+                                        pointRadius: 0,
+                                        fill: false,
+                                        order: 3
+                                    },
+                                    {
+                                        label: '6-Month Moving Avg',
+                                        data: chartData.ma,
+                                        borderColor: '#fd7e14',
+                                        borderDash: [2, 2],
+                                        borderWidth: 2,
+                                        pointRadius: 0,
+                                        fill: false,
+                                        order: 4
+                                    },
+                                    {
+                                        label: 'LR Forecast (30 Days)',
+                                        data: forecastPoints,
+                                        borderColor: '#dc3545',
+                                        borderWidth: 3,
+                                        pointStyle: 'triangle',
+                                        pointRadius: 6,
+                                        borderDash: [10, 5],
+                                        fill: false,
+                                        order: 2
+                                    }
+                                ]
                             },
                             options: {
                                 responsive: true,
+                                interaction: { mode: 'index', intersect: false },
                                 plugins: {
-                                    legend: { position: 'top' }
+                                    legend: { labels: { usePointStyle: true } }
                                 },
                                 scales: {
                                     y: { 
-                                        beginAtZero: false,
-                                        ticks: {
-                                            callback: function(value) {
-                                                return '₹' + value.toLocaleString();
-                                            }
-                                        }
+                                        ticks: { callback: (val) => '₹' + val.toLocaleString() }
                                     }
                                 }
                             }
