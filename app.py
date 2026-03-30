@@ -160,8 +160,30 @@ def list_users():
     if current_user.role != 'admin':
         flash("Access Denied: Only Admins can view the full user list.", "danger")
         return redirect(url_for("index"))
-    users = execute_query("SELECT user_id, username, full_name, balance_cash FROM Users", fetch_all=True)
-    return render_template("users.html", users=users)
+        
+    search_query = request.args.get("search", "").strip()
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = 50
+    
+    where_clauses, params = [], []
+    if search_query:
+        where_clauses.append("(user_id LIKE %s OR username LIKE %s OR full_name LIKE %s OR email LIKE %s)")
+        search_pattern = f"%{search_query}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+        
+    where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    count_sql = "SELECT COUNT(*) as total FROM Users" + where_sql
+    total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
+    total = total_records_result["total"] if total_records_result else 0
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    
+    sql = f"SELECT user_id, username, full_name, balance_cash FROM Users {where_sql} ORDER BY registration_date DESC LIMIT %s OFFSET %s"
+    users = execute_query(sql, tuple(params) + (per_page, offset), fetch_all=True)
+    
+    return render_template("users.html", users=users, search_query=search_query, page=page, total_pages=total_pages)
 
 @app.route("/users/<user_id>")
 @login_required
