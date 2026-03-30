@@ -101,29 +101,29 @@
                     {% endif %}
                     {% endif %}
                 </ul>
-                <ul class="navbar-nav d-flex flex-row flex-wrap align-items-center gap-2 mt-3 mt-lg-0">
+                <ul class="navbar-nav ms-auto d-flex align-items-lg-center flex-column flex-lg-row gap-3 mt-3 mt-lg-0">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item text-light w-100 w-lg-auto mb-2 mb-lg-0 text-center text-lg-start">
-                        <strong><i class="bi bi-wallet2"></i> {{ current_user.balance_cash | inr }}</strong>
+                    <li class="nav-item text-light d-flex align-items-center justify-content-start">
+                        <strong><i class="bi bi-wallet2 me-1"></i> {{ current_user.balance_cash | inr }}</strong>
                     </li>
-                    <li class="nav-item ms-lg-3 w-100 w-lg-auto mb-2 mb-lg-0 text-center text-lg-start">
+                    <li class="nav-item d-flex align-items-center justify-content-start">
                         <a href="{{ url_for('view_user', user_id=current_user.id) }}" class="text-light text-decoration-none fw-bold text-decoration-underline">
                             Welcome, {{ current_user.username }}
                         </a>
                     </li>
-                    <li class="nav-item ms-lg-3 flex-grow-1 flex-lg-grow-0">
-                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm w-100 w-lg-auto">Logout</a>
+                    <li class="nav-item">
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm d-block">Logout</a>
                     </li>
                     {% else %}
-                    <li class="nav-item flex-grow-1 flex-lg-grow-0">
-                        <a href="{{ url_for('login') }}" class="btn btn-light btn-sm w-100 w-lg-auto">Login</a>
+                    <li class="nav-item">
+                        <a href="{{ url_for('login') }}" class="btn btn-light btn-sm d-block">Login</a>
                     </li>
-                    <li class="nav-item flex-grow-1 flex-lg-grow-0">
-                        <a href="{{ url_for('register') }}" class="btn btn-success btn-sm w-100 w-lg-auto">Register</a>
+                    <li class="nav-item">
+                        <a href="{{ url_for('register') }}" class="btn btn-success btn-sm d-block">Register</a>
                     </li>
                     {% endif %}
-                    <li class="nav-item ms-auto ms-lg-2">
-                        <button class="btn btn-outline-light btn-sm w-100" id="theme-toggle">
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm d-block w-100" id="theme-toggle">
                             <i class="bi bi-moon-fill" id="theme-icon"></i>
                         </button>
                     </li>
