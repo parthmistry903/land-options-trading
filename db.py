@@ -25,27 +25,30 @@ def execute_query(sql, params=None, fetch_all=False):
     conn = get_db_connection()
     if not conn:
         return [] if fetch_all else False
-    cursor = conn.cursor(dictionary=True)
+    cursor = None
     try:
+        cursor = conn.cursor(dictionary=True)
         cursor.execute(sql, params or ())
         if sql.strip().upper().startswith("SELECT"):
-            result = cursor.fetchall() if fetch_all else cursor.fetchone()
-            return result
+            return cursor.fetchall() if fetch_all else cursor.fetchone()
         else:
             conn.commit()
             return True
     except Error:
         return [] if fetch_all else False
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def execute_transaction(queries):
     conn = get_db_connection()
     if not conn:
         return False
-    cursor = conn.cursor()
+    cursor = None
     try:
+        cursor = conn.cursor()
         conn.start_transaction()
         for sql, params in queries:
             cursor.execute(sql, params)
@@ -57,5 +60,7 @@ def execute_transaction(queries):
         conn.rollback()
         return False
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
