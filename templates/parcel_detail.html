@@ -58,14 +58,59 @@
         </div>
     </div>
     <div class="col-md-7">
-        <div class="card mb-4">
+        <div class="card mb-4 shadow">
             <div class="card-header bg-dark text-white">Price History & Forecast</div>
             <div class="card-body">
-                {% if chart_base64 %}
-                <img src="{{ chart_base64 }}" class="img-fluid rounded" alt="Price History Chart">
-                {% else %}
-                <p class="text-center text-muted">No price history data available to plot.</p>
-                {% endif %}
+                <canvas id="priceChart" width="400" height="200"></canvas>
+                <script type="application/json" id="chartDataJson">
+                    {{ chart_data | tojson | safe }}
+                </script>
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const rawData = document.getElementById('chartDataJson').textContent;
+                        const chartData = JSON.parse(rawData);
+
+                        if (chartData.dates.length === 0) {
+                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-4">No price history data available to plot.</p>';
+                            return;
+                        }
+
+                        const ctx = document.getElementById('priceChart').getContext('2d');
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: chartData.dates,
+                                datasets: [{
+                                    label: 'Actual Price (INR)',
+                                    data: chartData.prices,
+                                    borderColor: '#3772FF',
+                                    backgroundColor: 'rgba(55, 114, 255, 0.1)',
+                                    borderWidth: 2,
+                                    pointRadius: 3,
+                                    fill: true,
+                                    tension: 0.2
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: { position: 'top' }
+                                },
+                                scales: {
+                                    y: { 
+                                        beginAtZero: false,
+                                        ticks: {
+                                            callback: function(value) {
+                                                return '₹' + value.toLocaleString();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                </script>
             </div>
         </div>
     </div>
