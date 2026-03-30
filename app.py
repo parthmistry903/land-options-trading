@@ -364,9 +364,19 @@ def view_parcel(parcel_id):
     analytics = get_land_price_analytics(history)
     current_price = history[-1]["price_inr"] if history else parcel["base_price_inr"]
 
+    dates = [r["record_date"].strftime("%b %d, %Y") for r in history]
+    prices = [r["price_inr"] for r in history]
+    
+    if analytics["forecasted_price"] and history:
+        next_date = (history[-1]["record_date"] + pd.Timedelta(days=30)).strftime("%b %d, %Y")
+        dates.append(next_date)
+
     chart_data = {
-        "dates": [r["record_date"].strftime("%b %d, %Y") for r in history],
-        "prices": [r["price_inr"] for r in history]
+        "dates": dates,
+        "actual": prices,
+        "trend": [p["price"] for p in analytics["regression_line"]] if analytics["data_sufficient"] else [],
+        "ma": [p["price"] for p in analytics["moving_average"]] if analytics["data_sufficient"] else [],
+        "forecast": analytics["forecasted_price"]
     }
 
     return render_template(
