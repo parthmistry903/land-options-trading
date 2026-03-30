@@ -323,7 +323,8 @@ def list_parcels():
         where_sql = " WHERE " + " AND ".join(where_clauses)
 
     count_sql = "SELECT COUNT(*) as total FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id" + where_sql
-    total_records = execute_query(count_sql, tuple(params), fetch_all=False)["total"]
+    total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
+    total_records = total_records_result["total"] if total_records_result else 0
     total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
 
     base_sql = f"""
@@ -429,6 +430,13 @@ def buy_parcel(parcel_id):
 @app.route("/options")
 @login_required
 def list_options():
+    status_filter = request.args.get("status", "Open")
+    search_query = request.args.get("search", "").strip()
+    page = request.args.get("page", 1, type=int)
+    
+    per_page = 50
+    offset = (page - 1) * per_page
+
     base_sql = """
         SELECT O.*, P.address, P.city, U_Seller.username AS seller_name, U_Buyer.username AS buyer_name
         FROM Options O
@@ -436,19 +444,45 @@ def list_options():
         JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id
         LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id
     """
-    status_filter = request.args.get("status", "Open")
     params, where_clauses = [], []
 
     if status_filter != "All":
         where_clauses.append("O.status = %s")
         params.append(status_filter)
+        
+    if search_query:
+        where_clauses.append("(O.option_id LIKE %s OR P.city LIKE %s OR U_Seller.username LIKE %s OR U_Buyer.username LIKE %s)")
+        search_pattern = f"%{search_query}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
 
+    where_sql = ""
     if where_clauses:
-        base_sql += " WHERE " + " AND ".join(where_clauses)
-    base_sql += " ORDER BY O.expiry_date ASC LIMIT 50"
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+        
+    count_sql = """
+        SELECT COUNT(*) as total 
+        FROM Options O
+        JOIN Parcels P ON O.parcel_id = P.parcel_id
+        JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id
+        LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id
+    """ + where_sql
+    
+    total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
+    total_records = total_records_result["total"] if total_records_result else 0
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
 
-    options = execute_query(base_sql, tuple(params), fetch_all=True)
-    return render_template("options.html", options=options, status_filter=status_filter)
+    final_sql = base_sql + where_sql + " ORDER BY O.expiry_date ASC LIMIT %s OFFSET %s"
+    data_params = tuple(params) + (per_page, offset)
+
+    options = execute_query(final_sql, data_params, fetch_all=True)
+    return render_template(
+        "options.html", 
+        options=options, 
+        status_filter=status_filter, 
+        search_query=search_query, 
+        page=page, 
+        total_pages=total_pages
+    )
 
 @app.route("/buy_option/<option_id>", methods=["POST"])
 @login_required
@@ -490,16 +524,55 @@ def buy_option(option_id):
 @app.route("/trades")
 @login_required
 def list_trades():
-    trades = execute_query("""
+    search_query = request.args.get("search", "").strip()
+    page = request.args.get("page", 1, type=int)
+    
+    per_page = 50
+    offset = (page - 1) * per_page
+    
+    base_sql = """
         SELECT T.*, O.option_id, P.address, P.city, U_Buyer.username as buyer_name, U_Seller.username as seller_name
         FROM Trades T
         JOIN Options O ON T.option_id = O.option_id
         JOIN Parcels P ON O.parcel_id = P.parcel_id
         JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id
         JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id
-        ORDER BY T.trade_date DESC LIMIT 50
-        """, fetch_all=True)
-    return render_template("trades.html", trades=trades)
+    """
+    params, where_clauses = [], []
+    
+    if search_query:
+        where_clauses.append("(T.trade_id LIKE %s OR O.option_id LIKE %s OR P.city LIKE %s OR U_Buyer.username LIKE %s OR U_Seller.username LIKE %s)")
+        search_pattern = f"%{search_query}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
+
+    where_sql = ""
+    if where_clauses:
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+        
+    count_sql = """
+        SELECT COUNT(*) as total 
+        FROM Trades T
+        JOIN Options O ON T.option_id = O.option_id
+        JOIN Parcels P ON O.parcel_id = P.parcel_id
+        JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id
+        JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id
+    """ + where_sql
+    
+    total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
+    total_records = total_records_result["total"] if total_records_result else 0
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+
+    final_sql = base_sql + where_sql + " ORDER BY T.trade_date DESC LIMIT %s OFFSET %s"
+    data_params = tuple(params) + (per_page, offset)
+
+    trades = execute_query(final_sql, data_params, fetch_all=True)
+    return render_template(
+        "trades.html", 
+        trades=trades, 
+        search_query=search_query, 
+        page=page, 
+        total_pages=total_pages
+    )
 
 @app.route("/settle_options", methods=["GET", "POST"])
 @login_required
