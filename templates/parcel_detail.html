@@ -24,7 +24,7 @@
                     <small class="d-block text-muted mt-1">(Linear Regression 30-Day)</small>
                 </p>
                 {% else %}
-                <p class="text-muted">Not enough data to generate forecast.</p>
+                <p class="text-muted">Not enough data for forecast.</p>
                 {% endif %}
                 <a href="{{ url_for('list_options') }}?search={{ parcel.parcel_id }}" class="btn btn-warning mt-3 w-100 fw-bold">
                     <i class="bi bi-search"></i> View Options Market
@@ -39,11 +39,11 @@
                                 {% if not parcel.is_for_sale %}
                                     <div class="input-group mb-2">
                                         <span class="input-group-text">₹</span>
-                                        <input type="number" name="asking_price" class="form-control" placeholder="Set Asking Price..." required>
+                                        <input type="number" name="asking_price" class="form-control" placeholder="Enter Asking Price..." required>
                                     </div>
                                     <button type="submit" class="btn btn-success w-100 fw-bold">List for Sale</button>
                                 {% else %}
-                                    <div class="alert alert-success py-2 mb-2 text-center fw-bold small">Currently Listed for {{ parcel.listing_price_inr | inr }}</div>
+                                    <div class="alert alert-success py-2 mb-2 text-center fw-bold small">Listed for {{ parcel.listing_price_inr | inr }}</div>
                                     <button type="submit" class="btn btn-outline-danger w-100 fw-bold">Delist Property</button>
                                 {% endif %}
                             </form>
@@ -51,8 +51,8 @@
                     {% else %}
                         {% if parcel.is_for_sale %}
                             <form method="POST" action="{{ url_for('buy_parcel', parcel_id=parcel.parcel_id) }}">
-                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase for {{ active_price | inr }}?');">
-                                    Buy Property for {{ active_price | inr }}
+                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase?');">
+                                    Buy for {{ active_price | inr }}
                                 </button>
                             </form>
                         {% else %}
@@ -69,7 +69,6 @@
         <div class="card shadow-sm h-100">
             <div class="card-header bg-dark text-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
                 <span>Price History & Analytics</span>
-                <small class="text-light mt-1 mt-sm-0 opacity-75" style="font-size: 0.8rem;">Click legend to toggle lines</small>
             </div>
             <div class="card-body p-2 p-sm-4">
                 <div style="position: relative; height: 350px; width: 100%;">
@@ -82,8 +81,8 @@
                 <script>
                     document.addEventListener("DOMContentLoaded", function() {
                         const chartData = JSON.parse(document.getElementById('chartDataJson').textContent);
-                        if (chartData.dates.length === 0) {
-                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5 pt-5">No history data.</p>';
+                        if (!chartData || chartData.dates.length === 0) {
+                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5">No history data.</p>';
                             return;
                         }
                         const ctx = document.getElementById('priceChart').getContext('2d');
@@ -102,8 +101,7 @@
                                         backgroundColor: 'rgba(13, 110, 253, 0.1)',
                                         borderWidth: 3,
                                         pointRadius: 4,
-                                        fill: true,
-                                        order: 1
+                                        fill: true
                                     },
                                     {
                                         label: 'LR Trend',
@@ -112,44 +110,34 @@
                                         borderDash: [5, 5],
                                         borderWidth: 2,
                                         pointRadius: 0,
-                                        fill: false,
-                                        order: 3
+                                        fill: false
                                     },
                                     {
-                                        label: '6-Month Moving Avg',
+                                        label: 'Moving Avg',
                                         data: chartData.ma,
                                         borderColor: '#fd7e14',
                                         borderDash: [2, 2],
                                         borderWidth: 2,
                                         pointRadius: 0,
-                                        fill: false,
-                                        order: 4
+                                        fill: false
                                     },
                                     {
-                                        label: 'LR Forecast (30 Days)',
+                                        label: 'LR Forecast',
                                         data: forecastPoints,
                                         borderColor: '#dc3545',
                                         borderWidth: 3,
                                         pointStyle: 'triangle',
                                         pointRadius: 6,
                                         borderDash: [10, 5],
-                                        fill: false,
-                                        order: 2
+                                        fill: false
                                     }
                                 ]
                             },
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                interaction: { mode: 'index', intersect: false },
-                                plugins: {
-                                    legend: { 
-                                        position: 'bottom',
-                                        labels: { usePointStyle: true, boxWidth: 8, padding: 15 } 
-                                    }
-                                },
+                                plugins: { legend: { position: 'bottom' } },
                                 scales: {
-                                    x: { ticks: { maxRotation: 45, minRotation: 45 } },
                                     y: { ticks: { callback: (val) => '₹' + val.toLocaleString() } }
                                 }
                             }
