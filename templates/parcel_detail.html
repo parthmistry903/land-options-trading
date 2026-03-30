@@ -12,7 +12,12 @@
                 <p><strong>Location:</strong> {{ parcel.city }}, {{ parcel.state }}</p>
                 <p><strong>Owner:</strong> <a href="{{ url_for('view_user', user_id=parcel.owner_user_id) }}">{{ parcel.owner_name }}</a></p>
                 <hr>
-                <p><strong>Current Price:</strong> <span class="text-primary fs-4">{{ current_price | inr }}</span></p>
+                <p><strong>Current Valuation:</strong> <span class="text-primary fs-4">{{ current_price | inr }}</span></p>
+                
+                {% if parcel.is_for_sale and parcel.listing_price_inr %}
+                    <p><strong>Market Asking Price:</strong> <span class="text-success fs-4">{{ parcel.listing_price_inr | inr }}</span></p>
+                {% endif %}
+
                 {% if forecasted_price %}
                 <p><strong><span class="text-danger">Forecasted Next Price:</span></strong>
                     <span class="fs-5">{{ forecasted_price | inr }}</span>
@@ -28,24 +33,30 @@
                 <h5 class="mt-3 fs-6 fw-bold text-uppercase text-muted">Property Status</h5>
                 {% if current_user.is_authenticated %}
                     {% if current_user.id == parcel.owner_user_id %}
-                        <form method="POST" action="{{ url_for('toggle_sale', parcel_id=parcel.parcel_id) }}">
-                            {% if parcel.is_for_sale %}
-                                <div class="alert alert-success py-2 mb-2 text-center fw-bold">Currently Listed for Sale</div>
-                                <button type="submit" class="btn btn-outline-danger w-100">Delist Property</button>
-                            {% else %}
-                                <div class="alert alert-secondary py-2 mb-2 text-center text-muted">Not Listed for Sale</div>
-                                <button type="submit" class="btn btn-success w-100">List Property for Sale</button>
-                            {% endif %}
-                        </form>
+                        <div class="mt-2 p-3 border rounded bg-light">
+                            <label class="form-label fw-bold text-uppercase small">Manage Listing</label>
+                            <form action="{{ url_for('toggle_sale', parcel_id=parcel.parcel_id) }}" method="POST">
+                                {% if not parcel.is_for_sale %}
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" name="asking_price" class="form-control" placeholder="Set Asking Price..." required>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100 fw-bold">List for Sale</button>
+                                {% else %}
+                                    <div class="alert alert-success py-2 mb-2 text-center fw-bold small">Currently Listed for {{ parcel.listing_price_inr | inr }}</div>
+                                    <button type="submit" class="btn btn-outline-danger w-100 fw-bold">Delist Property</button>
+                                {% endif %}
+                            </form>
+                        </div>
                     {% else %}
                         {% if parcel.is_for_sale %}
                             <form method="POST" action="{{ url_for('buy_parcel', parcel_id=parcel.parcel_id) }}">
-                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase for {{ current_price | inr }}?');">
-                                    Buy Property Now
+                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase for {{ active_price | inr }}?');">
+                                    Buy Property for {{ active_price | inr }}
                                 </button>
                             </form>
                         {% else %}
-                            <button type="button" class="btn btn-secondary w-100 py-2" disabled>Owner has not listed for sale</button>
+                            <button type="button" class="btn btn-secondary w-100 py-2" disabled>Not Listed for Sale</button>
                         {% endif %}
                     {% endif %}
                 {% else %}
@@ -72,7 +83,7 @@
                     document.addEventListener("DOMContentLoaded", function() {
                         const chartData = JSON.parse(document.getElementById('chartDataJson').textContent);
                         if (chartData.dates.length === 0) {
-                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5 pt-5">No price history data available to plot.</p>';
+                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5 pt-5">No history data.</p>';
                             return;
                         }
                         const ctx = document.getElementById('priceChart').getContext('2d');
