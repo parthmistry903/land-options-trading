@@ -301,19 +301,52 @@ def delete_user(user_id):
 @login_required
 def list_parcels():
     status_filter = request.args.get("status", "All")
+    search_query = request.args.get("search", "").strip()
+    page = request.args.get("page", 1, type=int)
     
-    base_sql = """
+    per_page = 50
+    offset = (page - 1) * per_page
+    
+    where_clauses = []
+    params = []
+
+    if status_filter == "For Sale":
+        where_clauses.append("P.is_for_sale = TRUE")
+        
+    if search_query:
+        where_clauses.append("(P.parcel_id LIKE %s OR P.address LIKE %s OR P.city LIKE %s OR U.username LIKE %s)")
+        search_pattern = f"%{search_query}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+    where_sql = ""
+    if where_clauses:
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+
+    count_sql = "SELECT COUNT(*) as total FROM Parcels P JOIN Users U ON P.owner_user_id = U.user_id" + where_sql
+    total_records = execute_query(count_sql, tuple(params), fetch_all=False)["total"]
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+
+    base_sql = f"""
         SELECT P.parcel_id, P.address, P.city, P.state, P.area_sqm, P.is_for_sale, 
                U.username as owner_name, P.owner_user_id 
         FROM Parcels P 
         JOIN Users U ON P.owner_user_id = U.user_id
+        {where_sql}
+        ORDER BY P.parcel_id ASC
+        LIMIT %s OFFSET %s
     """
     
-    if status_filter == "For Sale":
-        base_sql += " WHERE P.is_for_sale = TRUE"
-        
-    parcels = execute_query(base_sql, fetch_all=True)
-    return render_template("parcels.html", parcels=parcels, status_filter=status_filter)
+    data_params = tuple(params) + (per_page, offset)
+    parcels = execute_query(base_sql, data_params, fetch_all=True)
+    
+    return render_template(
+        "parcels.html", 
+        parcels=parcels, 
+        status_filter=status_filter, 
+        search_query=search_query, 
+        page=page, 
+        total_pages=total_pages
+    )
 
 @app.route("/parcels/<parcel_id>")
 @login_required
