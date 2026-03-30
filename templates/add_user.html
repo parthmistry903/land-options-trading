@@ -1,33 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Add User{% endblock %}
 {% block content %}
-<h1 class="mb-4">Add New User</h1>
-<form method="POST">
-    <div class="mb-3">
-        <label for="user_id" class="form-label">User ID (e.g., U001)</label>
-        <input type="text" class="form-control" id="user_id" name="user_id" required>
+<div class="row justify-content-center mt-4">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white py-3">
+                <h4 class="mb-0"><i class="bi bi-person-fill-add me-2"></i>Manual User Creation</h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="user_id" class="form-label text-muted small text-uppercase fw-bold">User ID (Custom Override)</label>
+                        <input type="text" class="form-control font-monospace" id="user_id" name="user_id" placeholder="e.g., U001" required>
+                        <div class="form-text">Warning: Ensure this ID does not collide with auto-generated UUIDs.</div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6">
+                            <label for="full_name" class="form-label text-muted small text-uppercase fw-bold">Full Legal Name</label>
+                            <input type="text" class="form-control" id="full_name" name="full_name" required>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label for="username" class="form-label text-muted small text-uppercase fw-bold">Platform Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label text-muted small text-uppercase fw-bold">Registered Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-4 border-top pt-3 mt-4">
+                        <label for="balance_cash" class="form-label text-muted small text-uppercase fw-bold text-success">Starting Bankroll (INR)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-success fw-bold">₹</span>
+                            <input type="number" class="form-control border-start-0 ps-0 text-success fw-bold" id="balance_cash" name="balance_cash" value="0" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-muted small text-uppercase fw-bold">Temporary Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success w-100 fw-bold">Create Profile</button>
+                        <a href="{{ url_for('list_users') }}" class="btn btn-light border w-100 fw-bold text-muted">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-    <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input type="text" class="form-control" id="username" name="username" required>
-    </div>
-    <div class="mb-3">
-        <label for="full_name" class="form-label">Full Name</label>
-        <input type="text" class="form-control" id="full_name" name="full_name" required>
-    </div>
-    <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" name="email" required>
-    </div>
-    <div class="mb-3">
-        <label for="balance_cash" class="form-label">Starting Balance (INR)</label>
-        <input type="number" class="form-control" id="balance_cash" name="balance_cash" value="00000000" required>
-    </div>
-    <div class="mb-3">
-        <label for="password" class="form-label">Initial Password</label>
-        <input type="password" class="form-control" id="password" name="password" required>
-    </div>
-    <button type="submit" class="btn btn-success">Add User</button>
-    <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Cancel</a>
-</form>
+</div>
 {% endblock %}
