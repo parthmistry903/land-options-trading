@@ -284,7 +284,10 @@ def view_parcel(parcel_id):
         "ma": [p["price"] for p in analytics["moving_average"]],
         "forecast": analytics["forecasted_price"]
     }
-    return render_template("parcel_detail.html", parcel=parcel, current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"], forecasted_price=analytics["forecasted_price"], chart_data=chart_data)
+    # For buying logic: the price to pay is the listing_price if set, else valuation
+    active_price = parcel["listing_price_inr"] if parcel.get("listing_price_inr") else (history[-1]["price_inr"] if history else parcel["base_price_inr"])
+    
+    return render_template("parcel_detail.html", parcel=parcel, current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"], forecasted_price=analytics["forecasted_price"], chart_data=chart_data, active_price=active_price)
 
 @app.route("/toggle_sale/<parcel_id>", methods=["POST"])
 @login_required
@@ -293,36 +296,52 @@ def toggle_sale(parcel_id):
     if not parcel or parcel['owner_user_id'] != current_user.id:
         flash("Unauthorized or parcel not found.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
+    
     current_status = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
     new_status = not current_status
-    execute_query("UPDATE Parcels SET is_for_sale = %s WHERE parcel_id = %s", (new_status, parcel_id))
-    status_text = "listed for sale" if new_status else "removed from sale"
-    flash(f"Parcel {parcel_id} successfully {status_text}.", "success")
+    asking_price = request.form.get('asking_price')
+    
+    if new_status:
+        # User is listing the property
+        if not asking_price:
+            flash("You must set an asking price to list the property.", "warning")
+            return redirect(url_for("view_parcel", parcel_id=parcel_id))
+        execute_query("UPDATE Parcels SET is_for_sale = %s, listing_price_inr = %s WHERE parcel_id = %s", (new_status, asking_price, parcel_id))
+        flash(f"Parcel listed for sale at INR {float(asking_price):,.0f}.", "success")
+    else:
+        # User is delisting
+        execute_query("UPDATE Parcels SET is_for_sale = %s, listing_price_inr = NULL WHERE parcel_id = %s", (new_status, parcel_id))
+        flash("Parcel successfully removed from sale.", "info")
+        
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
 @app.route("/buy_parcel/<parcel_id>", methods=["POST"])
 @login_required
 def buy_parcel(parcel_id):
     buyer_id = current_user.id
-    parcel = execute_query("SELECT base_price_inr, owner_user_id, is_for_sale FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
+    parcel = execute_query("SELECT base_price_inr, listing_price_inr, owner_user_id, is_for_sale FROM Parcels WHERE parcel_id = %s", (parcel_id,), fetch_all=False)
     if not parcel:
         flash("Transaction failed: Parcel not found.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
+    
     is_for_sale = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
     if not is_for_sale or buyer_id == parcel["owner_user_id"]:
         flash("Transaction failed: Parcel not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
-    price = parcel["base_price_inr"]
+    
+    # Priority: User Asking Price > Base Price
+    price = parcel["listing_price_inr"] if parcel["listing_price_inr"] else parcel["base_price_inr"]
     seller_id = parcel["owner_user_id"]
+    
     queries = [
-        ("UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE WHERE parcel_id = %s AND is_for_sale = TRUE", (buyer_id, parcel_id)),
+        ("UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE, listing_price_inr = NULL WHERE parcel_id = %s AND is_for_sale = TRUE", (buyer_id, parcel_id)),
         ("UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s AND balance_cash >= %s", (price, buyer_id, price)),
         ("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (price, seller_id))
     ]
     if execute_transaction(queries):
-        flash(f"Parcel {parcel_id} successfully purchased for INR {price:,.0f}!", "success")
+        flash(f"Parcel purchased for INR {float(price):,.0f}!", "success")
     else:
-        flash("Transaction failed: Insufficient balance or race condition detected.", "danger")
+        flash("Transaction failed: Insufficient balance or race condition.", "danger")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
 @app.route("/options")
@@ -373,9 +392,9 @@ def buy_option(option_id):
         ("INSERT INTO Trades (trade_id, option_id, trade_date, trade_price_inr, quantity, buyer_user_id, seller_user_id) VALUES (%s, %s, CURDATE(), %s, 1, %s, %s)", (trade_id, option_id, premium, buyer_id, seller_id))
     ]
     if execute_transaction(queries):
-        flash(f"Option {option_id} successfully bought! Premium paid: {format_inr(premium)}", "success")
+        flash(f"Option bought! Premium paid: {format_inr(premium)}", "success")
     else:
-        flash("Trade failed: Insufficient balance or option was just sold.", "danger")
+        flash("Trade failed: Insufficient balance or race condition.", "danger")
     return redirect(url_for("list_options"))
 
 @app.route("/trades")
@@ -408,7 +427,7 @@ def list_trades():
 @login_required
 def settle_options():
     if current_user.role != 'admin':
-        flash("Access Denied: Only Admins can run the settlement engine.", "danger")
+        flash("Access Denied: Only Admins can run settlement.", "danger")
         return redirect(url_for("index"))
     expired_options = execute_query("SELECT O.option_id, O.parcel_id, O.strike_inr, O.buyer_user_id, O.seller_user_id, P.base_price_inr FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id WHERE O.status = 'Traded' AND O.expiry_date <= CURDATE()", fetch_all=True)
     settlement_results = []
@@ -433,11 +452,11 @@ def settle_options():
                 "strike": strike, "payout": payout, "result": status_update
             })
     if success_count > 0:
-        flash(f"Settlement run complete. {success_count} options processed successfully.", "success")
+        flash(f"Settlement complete. {success_count} options processed.", "success")
     elif expired_options:
-        flash("Settlement engine encountered errors on some options.", "warning")
+        flash("Settlement encountered errors on some options.", "warning")
     else:
-        flash("No valid expired options were found to settle.", "info")
+        flash("No expired options found.", "info")
     return render_template("settlement.html", results=settlement_results)
 
 @app.route('/deposit', methods=['POST'])
@@ -447,12 +466,12 @@ def deposit_funds():
     if amount and 0 < amount <= 10000000:
         success = execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (amount, current_user.id))
         if success:
-            flash(f"Successfully deposited INR {amount:,.2f} into your account.", "success")
+            flash(f"Deposited INR {amount:,.2f}.", "success")
             current_user.balance_cash += amount
         else:
-            flash("Database error during deposit.", "danger")
+            flash("Database error.", "danger")
     else:
-        flash("Invalid deposit amount or amount too large.", "danger")
+        flash("Invalid amount.", "danger")
     return redirect(url_for('view_user', user_id=current_user.id))
 
 @app.route('/change_password', methods=['POST'])
@@ -462,18 +481,18 @@ def change_password():
     new_password = request.form.get('new_password')
     confirm_new_password = request.form.get('confirm_new_password')
     if new_password != confirm_new_password:
-        flash("New passwords do not match.", "danger")
+        flash("Passwords do not match.", "danger")
         return redirect(url_for('view_user', user_id=current_user.id))
     user_data = execute_query("SELECT password_hash FROM Users WHERE user_id = %s", (current_user.id,), fetch_all=False)
     if not user_data or not check_password_hash(user_data['password_hash'], current_password):
-        flash("Incorrect current password.", "danger")
+        flash("Incorrect password.", "danger")
         return redirect(url_for('view_user', user_id=current_user.id))
     hashed_pw = generate_password_hash(new_password)
     success = execute_query("UPDATE Users SET password_hash = %s WHERE user_id = %s", (hashed_pw, current_user.id))
     if success:
-        flash("Password updated successfully.", "success")
+        flash("Password updated.", "success")
     else:
-        flash("Database error while updating password.", "danger")
+        flash("Database error.", "danger")
     return redirect(url_for('view_user', user_id=current_user.id))
 
 if __name__ == "__main__":
