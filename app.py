@@ -1,20 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
 import numpy as np
-import base64
-from io import BytesIO
 from datetime import datetime, date
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from valuation import get_land_price_analytics, calculate_fair_option_premium
 from db import execute_query
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
 import string
-
-matplotlib.use("Agg")
 
 app = Flask(__name__)
 app.secret_key = "supersecretkeyforflashmessages"
@@ -335,50 +328,20 @@ def view_parcel(parcel_id):
 
     history = execute_query("SELECT record_date, price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date ASC", (parcel_id,), fetch_all=True)
     analytics = get_land_price_analytics(history)
-    chart_base64 = generate_price_chart(history, analytics)
     current_price = history[-1]["price_inr"] if history else parcel["base_price_inr"]
+
+    chart_data = {
+        "dates": [r["record_date"].strftime("%b %d, %Y") for r in history],
+        "prices": [r["price_inr"] for r in history]
+    }
 
     return render_template(
         "parcel_detail.html",
         parcel=parcel,
         current_price=current_price,
         forecasted_price=analytics["forecasted_price"],
-        chart_base64=chart_base64
+        chart_data=chart_data
     )
-
-def generate_price_chart(history_data, analytics):
-    df = pd.DataFrame(history_data)
-    if df.empty: return None
-
-    df["record_date"] = pd.to_datetime(df["record_date"])
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(df["record_date"], df["price_inr"], marker="o", linestyle="-", color="tab:blue", label="Actual Price")
-
-    if analytics["data_sufficient"]:
-        reg_dates = pd.to_datetime([d["date"] for d in analytics["regression_line"]])
-        ax.plot(reg_dates, [d["price"] for d in analytics["regression_line"]], linestyle="--", color="green", label="Linear Regression Trend")
-        
-        ma_dates = pd.to_datetime([d["date"] for d in analytics["moving_average"]])
-        ax.plot(ma_dates, [d["price"] for d in analytics["moving_average"]], linestyle=":", color="orange", label="6-Period Moving Average")
-
-    if analytics["forecasted_price"] is not None:
-        last_date = df["record_date"].max()
-        forecast_date = last_date + pd.Timedelta(days=30)
-        ax.plot([last_date, forecast_date], [df["price_inr"].iloc[-1], analytics["forecasted_price"]], marker="x", linestyle="-.", color="tab:red", label="LR Forecast (30 Days)")
-        ax.annotate(f"Forecast: {format_inr(analytics['forecasted_price'])}", (forecast_date, analytics["forecasted_price"]), textcoords="offset points", xytext=(-10, 10), ha="right", color="tab:red", fontweight="bold")
-
-    ax.set_title("Land Price History with Regression and MA")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price (INR)")
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-    fig.autofmt_xdate()
-    ax.grid(True)
-    ax.legend(loc="best")
-
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    plt.close(fig)
-    return f"data:image/png;base64,{base64.b64encode(buf.getbuffer()).decode('ascii')}"
 
 @app.route("/toggle_sale/<parcel_id>", methods=["POST"])
 @login_required
