@@ -1,108 +1,90 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Land Options Trading{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}LandOptions Trading{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         :root {
             --bs-primary: #3772FF;
             --primary-bg: linear-gradient(90deg, #3772FF, #48A9A6);
             --card-bg-light: #ffffff;
             --card-text-light: #212529;
-
             --dashboard-open-options: #00B894;
             --dashboard-top-users: #FD5C63;
             --dashboard-stats: #6C5CE7;
         }
-
         [data-bs-theme="dark"] {
             --bs-body-bg: #1A1A2E;
             --bs-body-color: #f1f1f1;
             --primary-bg: linear-gradient(90deg, #5D5FEF, #7868E6);
             --card-bg-light: #2C2C40;
             --card-text-light: #ffffff;
-
             --dashboard-open-options: #00F3A7;
             --dashboard-top-users: #FF9F1C;
             --dashboard-stats: #9D72FF;
         }
-
         .navbar.bg-primary {
             background: var(--primary-bg) !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         }
-
         .navbar-brand {
             font-weight: 700;
             letter-spacing: 1px;
         }
-
         .card {
             border: none;
             border-radius: 0.75rem;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease-in-out;
         }
-
         .card:hover {
             transform: translateY(-6px);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
         }
-
         .bg-info.custom {
             background-color: var(--dashboard-open-options) !important;
             color: #fff;
         }
-
         .bg-success.custom {
             background-color: var(--dashboard-top-users) !important;
             color: #fff;
         }
-
         .bg-secondary.custom {
             background-color: var(--dashboard-stats) !important;
             color: #fff;
         }
-
         [data-bs-theme="light"] .card .btn-light {
             color: #000 !important;
             background-color: rgba(255, 255, 255, 0.9) !important;
             border-color: rgba(255, 255, 255, 0.7) !important;
         }
-
         [data-bs-theme="dark"] .card .btn-light {
             color: var(--bs-body-bg) !important;
             background-color: #f1f1f1 !important;
             border-color: #f1f1f1 !important;
         }
-
-        .card.bg-info a,
-        .card.bg-success a,
-        .card.bg-secondary a {
+        .card.bg-info a, .card.bg-success a, .card.bg-secondary a {
             font-weight: bold;
             color: #fff;
             text-decoration: underline;
         }
-
         .alert {
             border-radius: 0.5rem;
         }
+        .table-responsive {
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     {% block head_extra %}{% endblock %}
 </head>
-
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('index') }}">LandOptions</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -110,42 +92,38 @@
                     {% if current_user.is_authenticated %}
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('list_parcels') }}">Parcels</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('list_options') }}">Options Market</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('list_options') }}">Options Market</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('list_trades') }}">Trades</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('map_page') }}">Map</a></li>
-
                     {% if current_user.role == 'admin' %}
-                    <li class="nav-item"><a class="nav-link text-warning" href="{{ url_for('list_users') }}">Users
-                            (Admin)</a></li>
-                    <li class="nav-item"><a class="nav-link text-warning"
-                            href="{{ url_for('settle_options') }}">Settlement Engine</a></li>
+                    <li class="nav-item"><a class="nav-link text-warning" href="{{ url_for('list_users') }}">Users (Admin)</a></li>
+                    <li class="nav-item"><a class="nav-link text-warning" href="{{ url_for('settle_options') }}">Settlement Engine</a></li>
                     {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav d-flex flex-row flex-wrap align-items-center gap-2 mt-3 mt-lg-0">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item text-light">
+                    <li class="nav-item text-light w-100 w-lg-auto mb-2 mb-lg-0 text-center text-lg-start">
                         <strong><i class="bi bi-wallet2"></i> {{ current_user.balance_cash | inr }}</strong>
                     </li>
-                    <li class="nav-item ms-lg-3">
+                    <li class="nav-item ms-lg-3 w-100 w-lg-auto mb-2 mb-lg-0 text-center text-lg-start">
                         <a href="{{ url_for('view_user', user_id=current_user.id) }}" class="text-light text-decoration-none fw-bold text-decoration-underline">
                             Welcome, {{ current_user.username }}
                         </a>
                     </li>
-                    <li class="nav-item ms-3">
-                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
+                    <li class="nav-item ms-lg-3 flex-grow-1 flex-lg-grow-0">
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm w-100 w-lg-auto">Logout</a>
                     </li>
                     {% else %}
-                    <li class="nav-item">
-                        <a href="{{ url_for('login') }}" class="btn btn-light btn-sm">Login</a>
+                    <li class="nav-item flex-grow-1 flex-lg-grow-0">
+                        <a href="{{ url_for('login') }}" class="btn btn-light btn-sm w-100 w-lg-auto">Login</a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{{ url_for('register') }}" class="btn btn-success btn-sm">Register</a>
+                    <li class="nav-item flex-grow-1 flex-lg-grow-0">
+                        <a href="{{ url_for('register') }}" class="btn btn-success btn-sm w-100 w-lg-auto">Register</a>
                     </li>
                     {% endif %}
                     <li class="nav-item ms-auto ms-lg-2">
-                        <button class="btn btn-outline-light btn-sm" id="theme-toggle" title="Toggle Light/Dark Mode">
+                        <button class="btn btn-outline-light btn-sm w-100" id="theme-toggle">
                             <i class="bi bi-moon-fill" id="theme-icon"></i>
                         </button>
                     </li>
@@ -153,8 +131,7 @@
             </div>
         </div>
     </nav>
-
-    <div class="container mt-4">
+    <div class="container mt-4 mb-5">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="mb-3">
@@ -166,15 +143,12 @@
         {% endwith %}
         {% block content %}{% endblock %}
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const toggleButton = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
             const htmlElement = document.documentElement;
-
             function setTheme(theme) {
                 htmlElement.setAttribute('data-bs-theme', theme);
                 localStorage.setItem('theme', theme);
@@ -186,10 +160,8 @@
                     themeIcon.classList.add('bi-moon-fill');
                 }
             }
-
             const savedTheme = localStorage.getItem('theme') || 'light';
             setTheme(savedTheme);
-
             toggleButton.addEventListener('click', function () {
                 const currentTheme = htmlElement.getAttribute('data-bs-theme');
                 const newTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -199,5 +171,4 @@
     </script>
     {% block script_extra %}{% endblock %}
 </body>
-
 </html>
