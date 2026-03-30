@@ -2,27 +2,25 @@
 {% block title %}Options Market{% endblock %}
 {% block content %}
 <h1 class="mb-4">Options Market</h1>
-
-<form class="mb-4 d-flex align-items-end gap-3 flex-wrap" method="GET" action="{{ url_for('list_options') }}">
-    <div class="flex-grow-1">
+<form class="mb-4 d-flex flex-column flex-md-row align-items-md-end gap-3" method="GET" action="{{ url_for('list_options') }}">
+    <div class="flex-grow-1 w-100">
         <label for="search_input" class="form-label">Search Options:</label>
         <input type="text" class="form-control" id="search_input" name="search" placeholder="Search by ID, city, seller, or buyer..." value="{{ search_query }}">
     </div>
-    <div>
+    <div class="w-100 w-md-auto">
         <label for="status_filter" class="form-label">Filter by Status:</label>
         <select class="form-select" id="status_filter" name="status">
             <option value="Open" {% if status_filter == 'Open' %}selected{% endif %}>Open (Available to Buy)</option>
             <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Options</option>
         </select>
     </div>
-    <div>
-        <button type="submit" class="btn btn-secondary">Apply Filter & Search</button>
+    <div class="w-100 w-md-auto mt-2 mt-md-0">
+        <button type="submit" class="btn btn-secondary w-100">Apply Filter & Search</button>
     </div>
 </form>
-
-<div class="table-responsive">
-    <table class="table table-sm table-striped table-hover">
-        <thead>
+<div class="table-responsive text-nowrap shadow-sm rounded">
+    <table class="table table-sm table-striped table-hover mb-0">
+        <thead class="table-dark">
             <tr>
                 <th>ID</th>
                 <th>Parcel Location</th>
@@ -37,41 +35,39 @@
         <tbody>
             {% for option in options %}
             <tr>
-                <td>{{ option.option_id }}</td>
-                <td>
+                <td class="align-middle">{{ option.option_id }}</td>
+                <td class="align-middle">
                     <a href="{{ url_for('view_parcel', parcel_id=option.parcel_id) }}">
                         {{ option.address }}, <strong>{{ option.city }}</strong>
                     </a>
                 </td>
-                <td>{{ option.strike_inr | inr }}</td>
-                <td><strong>{{ option.premium_inr | inr }}</strong></td>
-                <td>{{ option.expiry_date | date }}</td>
-                <td><a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a></td>
-                <td>
+                <td class="align-middle">{{ option.strike_inr | inr }}</td>
+                <td class="align-middle"><strong>{{ option.premium_inr | inr }}</strong></td>
+                <td class="align-middle">{{ option.expiry_date | date }}</td>
+                <td class="align-middle"><a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a></td>
+                <td class="align-middle">
                     {% if option.buyer_name %}
                     <a href="{{ url_for('view_user', user_id=option.buyer_user_id) }}">{{ option.buyer_name }}</a>
                     {% else %}
                     N/A
                     {% endif %}
                 </td>
-                <td>
-                    <span class="badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning{% else %}secondary{% endif %}">{{ option.status }}</span>
+                <td class="align-middle">
+                    <span class="badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning text-dark{% else %}secondary{% endif %}">{{ option.status }}</span>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-
 <nav aria-label="Page navigation" class="mt-4">
-    <ul class="pagination justify-content-center flex-wrap">
+    <ul class="pagination justify-content-center flex-wrap gap-1">
         <li class="page-item {% if page <= 1 %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('list_options', page=1, status=status_filter, search=search_query) }}">&laquo; First</a>
         </li>
         <li class="page-item {% if page <= 1 %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('list_options', page=page-1, status=status_filter, search=search_query) }}">&lsaquo; Prev</a>
         </li>
-        
         {% for p in range(1, total_pages + 1) %}
             {% if p >= page - 2 and p <= page + 2 %}
             <li class="page-item {% if p == page %}active{% endif %}">
@@ -79,7 +75,6 @@
             </li>
             {% endif %}
         {% endfor %}
-
         <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('list_options', page=page+1, status=status_filter, search=search_query) }}">Next &rsaquo;</a>
         </li>
