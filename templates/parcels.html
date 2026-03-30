@@ -3,16 +3,20 @@
 {% block content %}
 <h1 class="mb-4">Land Parcels by Location</h1>
 
-<form class="mb-4 d-flex" method="GET" action="{{ url_for('list_parcels') }}">
-    <div class="me-3">
+<form class="mb-4 d-flex align-items-end gap-3 flex-wrap" method="GET" action="{{ url_for('list_parcels') }}">
+    <div class="flex-grow-1">
+        <label for="search_input" class="form-label">Search Parcels:</label>
+        <input type="text" class="form-control" id="search_input" name="search" placeholder="Search by ID, city, or owner..." value="{{ search_query }}">
+    </div>
+    <div>
         <label for="status_filter" class="form-label">Filter by Status:</label>
         <select class="form-select" id="status_filter" name="status">
             <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Parcels</option>
             <option value="For Sale" {% if status_filter == 'For Sale' %}selected{% endif %}>For Sale Only</option>
         </select>
     </div>
-    <div class="align-self-end">
-        <button type="submit" class="btn btn-secondary">Apply Filter</button>
+    <div>
+        <button type="submit" class="btn btn-secondary">Apply Filter & Search</button>
     </div>
 </form>
 
@@ -54,4 +58,18 @@
         </tbody>
     </table>
 </div>
+
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_parcels', page=page-1, status=status_filter, search=search_query) }}">Previous</a>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link text-dark">Page {{ page }} of {{ total_pages }}</span>
+        </li>
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_parcels', page=page+1, status=status_filter, search=search_query) }}">Next</a>
+        </li>
+    </ul>
+</nav>
 {% endblock %}
