@@ -49,7 +49,12 @@ def register():
         full_name = request.form['full_name']
         email = request.form['email']
         password = request.form['password']
+        confirm_password = request.form.get('confirm_password')
         
+        if password != confirm_password:
+            flash("Registration failed: Passwords do not match.", "danger")
+            return redirect(url_for('register'))
+            
         existing_user = execute_query("SELECT * FROM Users WHERE username = %s OR email = %s", (username, email), fetch_all=False)
         if existing_user:
             flash("Username or Email already exists.", "danger")
@@ -84,15 +89,29 @@ def login():
         
         user_data = execute_query("SELECT * FROM Users WHERE username = %s", (username,), fetch_all=False)
         
-        if user_data and user_data.get('password_hash') and check_password_hash(user_data['password_hash'], password):
-            user_obj = User(user_data)
-            login_user(user_obj)
-            flash(f"Welcome back, {user_data['full_name']}!", "success")
+        if user_data:
+            db_password = user_data.get('password_hash') or user_data.get('password')
             
-            next_page = request.args.get('next')
-            return redirect(next_page if next_page else url_for('index'))
-        else:
-            flash("Invalid username or password.", "danger")
+            if db_password:
+                is_valid = False
+                
+                try:
+                    is_valid = check_password_hash(db_password, password)
+                except ValueError:
+                    pass
+                
+                if not is_valid and db_password == password:
+                    is_valid = True
+                    
+                if is_valid:
+                    user_obj = User(user_data)
+                    login_user(user_obj)
+                    flash(f"Welcome back, {user_data['full_name']}!", "success")
+                    
+                    next_page = request.args.get('next')
+                    return redirect(next_page if next_page else url_for('index'))
+                    
+        flash("Invalid username or password.", "danger")
             
     return render_template('login.html')
 
