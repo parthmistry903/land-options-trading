@@ -1,71 +1,87 @@
 {% extends "base.html" %}
 {% block title %}User: {{ user.username }}{% endblock %}
 {% block content %}
-<h1 class="mb-4">{{ user.full_name }} ({{ user.username }})</h1>
-<div class="row">
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">User Details</div>
-            <div class="card-body">
-                <p><strong>User ID:</strong> {{ user.user_id }}</p>
-                <p><strong>Email:</strong> {{ user.email }}</p>
-                <p><strong>Registration Date:</strong> {{ user.registration_date | date }}</p>
-                <h3 class="text-success">Cash Balance: {{ user.balance_cash | inr }}</h3>
-                
+<h1 class="mb-4 fs-2">{{ user.full_name }} <span class="text-muted fs-4">(@{{ user.username }})</span></h1>
+<div class="row g-4">
+    <div class="col-12 col-lg-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white fw-bold">User Details</div>
+            <div class="card-body d-flex flex-column">
+                <div class="mb-4">
+                    <p class="mb-1"><span class="text-muted small text-uppercase fw-bold">User ID</span><br/><strong>{{ user.user_id }}</strong></p>
+                    <p class="mb-1 mt-3"><span class="text-muted small text-uppercase fw-bold">Email</span><br/>{{ user.email }}</p>
+                    <p class="mb-1 mt-3"><span class="text-muted small text-uppercase fw-bold">Member Since</span><br/>{{ user.registration_date | date }}</p>
+                </div>
+                <div class="p-3 bg-light rounded text-center mb-auto" data-bs-theme="light">
+                    <span class="text-muted small text-uppercase fw-bold d-block mb-1">Available Cash Balance</span>
+                    <h2 class="text-success fw-bold mb-0">{{ user.balance_cash | inr }}</h2>
+                </div>
                 {% if current_user.id == user.user_id %}
-                <form action="{{ url_for('deposit_funds') }}" method="POST" class="mt-4 border-top pt-3">
-                    <label class="form-label fw-bold">Add Funds (Simulated Bank Transfer)</label>
+                <form action="{{ url_for('deposit_funds') }}" method="POST" class="mt-4 border-top pt-4">
+                    <label class="form-label text-muted small text-uppercase fw-bold">Simulate Bank Transfer Deposit</label>
                     <div class="input-group">
-                        <input type="number" name="amount" class="form-control" placeholder="Enter amount in INR" min="100" required>
-                        <button type="submit" class="btn btn-success">Deposit</button>
+                        <span class="input-group-text bg-light text-muted">₹</span>
+                        <input type="number" name="amount" class="form-control" placeholder="Enter amount..." min="100" required>
+                        <button type="submit" class="btn btn-success px-4 fw-bold">Add</button>
                     </div>
                 </form>
                 {% endif %}
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header bg-secondary text-white">Owned Parcels (Holdings)</div>
-            <ul class="list-group list-group-flush">
-                {% for parcel in parcels %}
-                <li class="list-group-item">
-                    <a href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}">{{ parcel.address }}, {{
-                        parcel.city }}</a>
-                    <span class="float-end">{{ parcel.base_price_inr | inr }}</span>
-                </li>
-                {% else %}
-                <li class="list-group-item text-muted">No parcels currently owned.</li>
-                {% endfor %}
-            </ul>
+    <div class="col-12 col-lg-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-secondary text-white fw-bold d-flex justify-content-between align-items-center">
+                Owned Parcels (Holdings)
+                <span class="badge bg-light text-dark rounded-pill">{{ parcels|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for parcel in parcels %}
+                    <li class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center p-3 hover-bg-light">
+                        <div class="mb-2 mb-sm-0">
+                            <a href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}" class="fw-bold text-decoration-none d-block mb-1">
+                                {{ parcel.address }}
+                            </a>
+                            <span class="badge bg-info text-dark"><i class="bi bi-geo-alt-fill"></i> {{ parcel.city }}</span>
+                        </div>
+                        <h5 class="text-success fw-bold mb-0">{{ parcel.base_price_inr | inr }}</h5>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-center text-muted p-5">
+                        <i class="bi bi-house-x display-4 d-block mb-3 opacity-50"></i>
+                        No parcels currently owned.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
     </div>
 </div>
-
-<h2 class="mt-4">Trading History</h2>
-<div class="table-responsive">
-    <table class="table table-sm table-bordered">
-        <thead>
+<h3 class="mt-5 mb-3 fs-4 fw-bold">Personal Trading History</h3>
+<div class="table-responsive text-nowrap shadow-sm rounded">
+    <table class="table table-striped table-hover mb-0">
+        <thead class="table-dark">
             <tr>
                 <th>Trade ID</th>
                 <th>Date</th>
                 <th>Option ID</th>
-                <th>Parcel</th>
-                <th>Price</th>
+                <th>Parcel Location</th>
+                <th>Trade Price</th>
             </tr>
         </thead>
         <tbody>
             {% for trade in trades %}
             <tr>
-                <td>{{ trade.trade_id }}</td>
-                <td>{{ trade.trade_date | date }}</td>
-                <td><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a></td>
-                <td>{{ trade.address }}, {{ trade.city }}</td>
-                <td>{{ trade.trade_price_inr | inr }}</td>
+                <td class="align-middle text-muted">{{ trade.trade_id }}</td>
+                <td class="align-middle">{{ trade.trade_date | date }}</td>
+                <td class="align-middle"><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}" class="fw-bold">{{ trade.option_id }}</a></td>
+                <td class="align-middle">{{ trade.address }}, {{ trade.city }}</td>
+                <td class="align-middle text-success fw-bold">{{ trade.trade_price_inr | inr }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="text-center text-muted">No trades found.</td>
+                <td colspan="5" class="text-center text-muted p-4">No trades executed yet.</td>
             </tr>
             {% endfor %}
         </tbody>
