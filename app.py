@@ -433,5 +433,26 @@ def deposit_funds():
         flash("Invalid deposit amount or amount too large.", "danger")
     return redirect(url_for('view_user', user_id=current_user.id))
 
+@app.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_new_password = request.form.get('confirm_new_password')
+    if new_password != confirm_new_password:
+        flash("New passwords do not match.", "danger")
+        return redirect(url_for('view_user', user_id=current_user.id))
+    user_data = execute_query("SELECT password_hash FROM Users WHERE user_id = %s", (current_user.id,), fetch_all=False)
+    if not user_data or not check_password_hash(user_data['password_hash'], current_password):
+        flash("Incorrect current password.", "danger")
+        return redirect(url_for('view_user', user_id=current_user.id))
+    hashed_pw = generate_password_hash(new_password)
+    success = execute_query("UPDATE Users SET password_hash = %s WHERE user_id = %s", (hashed_pw, current_user.id))
+    if success:
+        flash("Password updated successfully.", "success")
+    else:
+        flash("Database error while updating password.", "danger")
+    return redirect(url_for('view_user', user_id=current_user.id))
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true')
