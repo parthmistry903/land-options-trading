@@ -64,15 +64,27 @@
 </div>
 
 <nav aria-label="Page navigation" class="mt-4">
-    <ul class="pagination justify-content-center">
+    <ul class="pagination justify-content-center flex-wrap">
         <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('list_options', page=page-1, status=status_filter, search=search_query) }}">Previous</a>
+            <a class="page-link" href="{{ url_for('list_options', page=1, status=status_filter, search=search_query) }}">&laquo; First</a>
         </li>
-        <li class="page-item disabled">
-            <span class="page-link text-dark">Page {{ page }} of {{ total_pages }}</span>
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_options', page=page-1, status=status_filter, search=search_query) }}">&lsaquo; Prev</a>
+        </li>
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p >= page - 2 and p <= page + 2 %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('list_options', page=p, status=status_filter, search=search_query) }}">{{ p }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_options', page=page+1, status=status_filter, search=search_query) }}">Next &rsaquo;</a>
         </li>
         <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('list_options', page=page+1, status=status_filter, search=search_query) }}">Next</a>
+            <a class="page-link" href="{{ url_for('list_options', page=total_pages, status=status_filter, search=search_query) }}">Last &raquo;</a>
         </li>
     </ul>
 </nav>
