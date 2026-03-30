@@ -3,6 +3,16 @@
 {% block content %}
 <h1 class="mb-4">Trade History</h1>
 
+<form class="mb-4 d-flex align-items-end gap-3 flex-wrap" method="GET" action="{{ url_for('list_trades') }}">
+    <div class="flex-grow-1">
+        <label for="search_input" class="form-label">Search Trades:</label>
+        <input type="text" class="form-control" id="search_input" name="search" placeholder="Search by Trade ID, Option ID, City, Buyer, or Seller..." value="{{ search_query }}">
+    </div>
+    <div>
+        <button type="submit" class="btn btn-secondary">Search</button>
+    </div>
+</form>
+
 <div class="table-responsive">
     <table class="table table-striped table-hover">
         <thead>
@@ -31,4 +41,18 @@
         </tbody>
     </table>
 </div>
+
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_trades', page=page-1, search=search_query) }}">Previous</a>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link text-dark">Page {{ page }} of {{ total_pages }}</span>
+        </li>
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('list_trades', page=page+1, search=search_query) }}">Next</a>
+        </li>
+    </ul>
+</nav>
 {% endblock %}
