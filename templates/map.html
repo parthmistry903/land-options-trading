@@ -12,17 +12,24 @@
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
         z-index: 1;
     }
+
     @media (min-width: 992px) {
-        #map { height: 75vh; }
+        #map {
+            height: 75vh;
+        }
     }
-    .map-sidebar h5, .map-sidebar label {
+
+    .map-sidebar h5,
+    .map-sidebar label {
         color: var(--bs-body-color);
         font-weight: 500;
     }
+
     .filter-btn.active {
         font-weight: bold;
         box-shadow: inset 0 3px 5px rgba(0,0,0,0.125);
     }
+
     .legend {
         background: var(--card-bg-light);
         color: var(--bs-body-color);
@@ -31,9 +38,21 @@
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         font-size: 0.9rem;
     }
-    .marker-cluster-small { background-color: rgba(40, 167, 69, 0.8) !important; color: #fff !important; }
-    .marker-cluster-medium { background-color: rgba(111, 66, 193, 0.9) !important; color: #fff !important; }
-    .marker-cluster-large { background-color: rgba(13, 110, 253, 0.95) !important; color: #fff !important; }
+
+    .marker-cluster-small {
+        background-color: rgba(40, 167, 69, 0.8) !important;
+        color: #fff !important;
+    }
+
+    .marker-cluster-medium {
+        background-color: rgba(111, 66, 193, 0.9) !important;
+        color: #fff !important;
+    }
+
+    .marker-cluster-large {
+        background-color: rgba(13, 110, 253, 0.95) !important;
+        color: #fff !important;
+    }
 </style>
 {% endblock %}
 {% block content %}
@@ -51,7 +70,7 @@
                 <option value="{{ c }}">{{ c }}</option>
                 {% endfor %}
             </select>
-            
+
             <label class="form-label small text-muted text-uppercase fw-bold mb-2">Market Layers</label>
             <div class="d-grid gap-2 mb-4">
                 <button class="btn btn-outline-success filter-btn active" id="btn-sale" data-layer="sale">
@@ -103,7 +122,6 @@
     const CURRENT_USER_ID = "{{ current_user_id }}";
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Locked map scroll zoom to prevent mobile scrolling issues
         const map = L.map('map', { scrollWheelZoom: false, tap: false }).setView([20.5937, 78.9629], 5);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
@@ -115,7 +133,7 @@
 
         const iconBase = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
         const iconConf = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] };
-        
+
         const iconGreen = L.icon({ iconUrl: iconBase + 'green.png', ...iconConf });
         const iconBlue = L.icon({ iconUrl: iconBase + 'blue.png', ...iconConf });
         const iconViolet = L.icon({ iconUrl: iconBase + 'violet.png', ...iconConf });
@@ -127,7 +145,7 @@
                 const resp = await fetch('/api/parcels_geojson' + params);
                 if (!resp.ok) throw new Error("API Fetch Failed");
                 const geojson = await resp.json();
-                
+
                 layerGroupSale.clearLayers();
                 layerGroupPortfolio.clearLayers();
                 layerGroupGeneral.clearLayers();
@@ -136,18 +154,18 @@
                     geojson.features.forEach(feature => {
                         const p = feature.properties;
                         const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
-                        
+
                         const isOwner = p.owner_user_id === CURRENT_USER_ID;
                         const isForSale = String(p.is_for_sale) === '1' || String(p.is_for_sale).toLowerCase() === 'true';
-                        
+
                         let markerIcon = iconGrey;
                         if (isOwner) markerIcon = iconBlue;
                         else if (isForSale) markerIcon = iconGreen;
 
                         const marker = L.marker(latlng, { icon: markerIcon });
-                        
+
                         let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
-                        
+
                         if (isOwner) {
                             popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
@@ -173,9 +191,11 @@
                 if (document.getElementById('btn-sale').classList.contains('active')) map.addLayer(layerGroupSale);
                 if (document.getElementById('btn-portfolio').classList.contains('active')) map.addLayer(layerGroupPortfolio);
                 if (document.getElementById('btn-general').classList.contains('active')) map.addLayer(layerGroupGeneral);
-                
+
                 if (!city && layerGroupGeneral.getLayers().length > 0) {
-                    try { map.fitBounds(layerGroupGeneral.getBounds().pad(0.1)); } catch (e) { }
+                    try {
+                        map.fitBounds(layerGroupGeneral.getBounds().pad(0.1));
+                    } catch (e) { }
                 }
             } catch (err) {
                 console.error("Map Parcel Render Blocked:", err);
@@ -187,7 +207,7 @@
                 const resp = await fetch('/api/options_geojson');
                 if (!resp.ok) return;
                 const geojson = await resp.json();
-                
+
                 layerGroupOptions.clearLayers();
 
                 if (geojson.features) {
@@ -201,7 +221,7 @@
                         popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString('en-IN')}</strong></div>`;
                         popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString('en-IN')}</strong></div>`;
                         popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
-                        
+
                         marker.bindPopup(popupHtml);
                         layerGroupOptions.addLayer(marker);
                     });
@@ -222,28 +242,33 @@
                 if (!data || data.length === 0) return;
                 const heatPoints = data.map(d => [d.lat, d.lon, Math.max(0.1, Math.log(Number(d.avg_price || 1)) / 10)]);
                 heatLayer = L.heatLayer(heatPoints, {
-                    radius: 30, blur: 20, maxZoom: 12,
+                    radius: 30,
+                    blur: 20,
+                    maxZoom: 12,
                     gradient: { 0.2: '#008744', 0.4: '#38b000', 0.6: '#ffc107', 0.8: '#ff6600', 1.0: '#dc3545' }
                 });
                 if (document.getElementById('toggle-heat').checked) heatLayer.addTo(map);
-            } catch(err) {
-                // Ignore heatmap failure
+            } catch (err) {
             }
         }
 
-        loadParcels(); loadOptions(); loadHeat();
+        loadParcels();
+        loadOptions();
+        loadHeat();
 
-        document.getElementById('city-filter').addEventListener('change', function (e) { loadParcels(e.target.value); });
+        document.getElementById('city-filter').addEventListener('change', function (e) {
+            loadParcels(e.target.value);
+        });
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 this.classList.toggle('active');
                 const layer = this.getAttribute('data-layer');
                 if (layer === 'sale') {
                     this.classList.contains('active') ? map.addLayer(layerGroupSale) : map.removeLayer(layerGroupSale);
                 } else if (layer === 'options') {
                     this.classList.contains('active') ? map.addLayer(layerGroupOptions) : map.removeLayer(layerGroupOptions);
-                    if(this.classList.contains('active')) {
+                    if (this.classList.contains('active')) {
                         this.style.backgroundColor = '#6f42c1';
                         this.style.color = '#fff';
                     } else {
@@ -261,9 +286,9 @@
         document.getElementById('btn-options').style.backgroundColor = '#6f42c1';
         document.getElementById('btn-options').style.color = '#fff';
 
-        document.getElementById('toggle-heat').addEventListener('change', function (e) { 
-            if (e.target.checked && heatLayer) map.addLayer(heatLayer); 
-            else if (heatLayer) map.removeLayer(heatLayer); 
+        document.getElementById('toggle-heat').addEventListener('change', function (e) {
+            if (e.target.checked && heatLayer) map.addLayer(heatLayer);
+            else if (heatLayer) map.removeLayer(heatLayer);
         });
     });
 </script>
