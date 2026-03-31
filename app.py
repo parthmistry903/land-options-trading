@@ -84,22 +84,31 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
     features = []
     if not rows:
         return {"type": "FeatureCollection", "features": features}
+    
     for r in rows:
-        lat = r.get(lat_key)
-        lon = r.get(lon_key)
-        if lat is None or lon is None:
+        raw_lat = r.get(lat_key)
+        raw_lon = r.get(lon_key)
+        
+        # SKIP if the database literally returned NULL for coordinates
+        if raw_lat is None or raw_lon is None:
             continue
+            
         try:
-            lat = float(lat)
-            lon = float(lon)
+            # FORCE the coordinates to be strict numbers so Leaflet doesn't crash
+            lat = float(raw_lat)
+            lon = float(raw_lon)
         except (ValueError, TypeError):
+            # If the database sent garbage text instead of a number, skip it
             continue
+            
         props = {k: v for k, v in r.items() if k not in (lat_key, lon_key)}
+        
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [lon, lat]},
             "properties": props,
         })
+        
     return {"type": "FeatureCollection", "features": features}
 
 @app.route("/map")
