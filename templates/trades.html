@@ -29,11 +29,17 @@
             <tr>
                 <td class="align-middle">{{ trade.trade_id }}</td>
                 <td class="align-middle">{{ trade.trade_date | date }}</td>
-                <td class="align-middle"><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a></td>
+                <td class="align-middle">
+                    <a href="{{ url_for('list_options') }}?search={{ trade.option_id }}">{{ trade.option_id }}</a>
+                </td>
                 <td class="align-middle">{{ trade.address }} ({{ trade.city }})</td>
                 <td class="align-middle text-success"><strong>{{ trade.trade_price_inr | inr }}</strong></td>
-                <td class="align-middle"><a href="{{ url_for('view_user', user_id=trade.buyer_user_id) }}">{{ trade.buyer_name }}</a></td>
-                <td class="align-middle"><a href="{{ url_for('view_user', user_id=trade.seller_user_id) }}">{{ trade.seller_name }}</a></td>
+                <td class="align-middle">
+                    <a href="{{ url_for('view_user', user_id=trade.buyer_user_id) }}">{{ trade.buyer_name }}</a>
+                </td>
+                <td class="align-middle">
+                    <a href="{{ url_for('view_user', user_id=trade.seller_user_id) }}">{{ trade.seller_name }}</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
