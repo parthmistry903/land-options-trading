@@ -1,177 +1,233 @@
 {% extends "base.html" %}
-{% block title %}Parcel: {{ parcel.address }}{% endblock %}
+{% block title %}Map - LandOptions{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<style>
+    #map {
+        height: 60vh;
+        width: 100%;
+        border-radius: .5rem;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        z-index: 1;
+    }
+    @media (min-width: 992px) {
+        #map { height: 75vh; }
+    }
+    .map-sidebar h5, .map-sidebar label {
+        color: var(--bs-body-color);
+        font-weight: 500;
+    }
+    .filter-btn.active {
+        font-weight: bold;
+        box-shadow: inset 0 3px 5px rgba(0,0,0,0.125);
+    }
+    .legend {
+        background: var(--card-bg-light);
+        color: var(--bs-body-color);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        font-size: 0.9rem;
+    }
+    .marker-cluster-small { background-color: rgba(40, 167, 69, 0.8) !important; color: #fff !important; }
+    .marker-cluster-medium { background-color: rgba(111, 66, 193, 0.9) !important; color: #fff !important; }
+    .marker-cluster-large { background-color: rgba(13, 110, 253, 0.95) !important; color: #fff !important; }
+</style>
+{% endblock %}
 {% block content %}
-<h1 class="mb-4 fs-3">{{ parcel.address }} ({{ parcel.city }})</h1>
 <div class="row g-4">
-    <div class="col-12 col-lg-5">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-dark text-white">Parcel & Valuation Info</div>
-            <div class="card-body">
-                <p><strong>Parcel ID:</strong> {{ parcel.parcel_id }}</p>
-                <p><strong>Area:</strong> {{ parcel.area_sqm }} sqm</p>
-                <p><strong>Location:</strong> {{ parcel.city }}, {{ parcel.state }}</p>
-                <p><strong>Owner:</strong> <a href="{{ url_for('view_user', user_id=parcel.owner_user_id) }}">{{ parcel.owner_name }}</a></p>
-                <hr>
-                <p><strong>Current Valuation:</strong> <span class="text-primary fs-4">{{ current_price | inr }}</span></p>
-                
-                {% if parcel.is_for_sale and parcel.listing_price_inr %}
-                    <p><strong>Market Asking Price:</strong> <span class="text-success fs-4">{{ parcel.listing_price_inr | inr }}</span></p>
-                {% endif %}
-
-                {% if forecasted_price %}
-                <p><strong><span class="text-danger">Forecasted Next Price:</span></strong>
-                    <span class="fs-5">{{ forecasted_price | inr }}</span>
-                    <small class="d-block text-muted mt-1">(Linear Regression 30-Day)</small>
-                </p>
-                {% else %}
-                <p class="text-muted">Not enough data for forecast.</p>
-                {% endif %}
-                <a href="{{ url_for('list_options') }}?search={{ parcel.parcel_id }}" class="btn btn-warning mt-3 w-100 fw-bold">
-                    <i class="bi bi-search"></i> View Options Market
-                </a>
-                <hr>
-                <h5 class="mt-3 fs-6 fw-bold text-uppercase text-muted">Property Status</h5>
-                {% if current_user.is_authenticated %}
-                    {% if current_user.id == parcel.owner_user_id %}
-                        <div class="mt-2 p-3 border rounded bg-light">
-                            <label class="form-label fw-bold text-uppercase small">Manage Listing</label>
-                            <form action="{{ url_for('toggle_sale', parcel_id=parcel.parcel_id) }}" method="POST">
-                                {% if not parcel.is_for_sale %}
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text">₹</span>
-                                        <input type="number" name="asking_price" class="form-control" placeholder="Enter Asking Price..." required>
-                                    </div>
-                                    <button type="submit" class="btn btn-success w-100 fw-bold">List for Sale</button>
-                                {% else %}
-                                    <div class="alert alert-success py-2 mb-2 text-center fw-bold small">Listed for {{ parcel.listing_price_inr | inr }}</div>
-                                    <button type="submit" class="btn btn-outline-danger w-100 fw-bold">Delist Property</button>
-                                {% endif %}
-                            </form>
-                        </div>
-                    {% else %}
-                        {% if parcel.is_for_sale %}
-                            <form method="POST" action="{{ url_for('buy_parcel', parcel_id=parcel.parcel_id) }}">
-                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5 fw-bold" onclick="return confirm('Confirm purchase?');">
-                                    Buy for {{ active_price | inr }}
-                                </button>
-                            </form>
-                        {% else %}
-                            <button type="button" class="btn btn-secondary w-100 py-2 fw-bold" disabled>Not Listed for Sale</button>
-                        {% endif %}
-                    {% endif %}
-                {% else %}
-                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100 fw-bold">Login to Purchase</a>
-                {% endif %}
-            </div>
-        </div>
+    <div class="col-12 col-lg-9 order-1 order-lg-2">
+        <div id="map"></div>
     </div>
-    <div class="col-12 col-lg-7">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-dark text-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
-                <span>Price History & Analytics</span>
+    <div class="col-12 col-lg-3 order-2 order-lg-1 map-sidebar">
+        <div class="card shadow-sm p-3 h-100">
+            <h5 class="mb-3 border-bottom pb-2">Discovery Filters 🗺️</h5>
+            <label class="form-label small text-muted text-uppercase fw-bold">Target City</label>
+            <select id="city-filter" class="form-select mb-4">
+                <option value="">All Cities</option>
+                {% for c in cities %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+            
+            <label class="form-label small text-muted text-uppercase fw-bold mb-2">Market Layers</label>
+            <div class="d-grid gap-2 mb-4">
+                <button class="btn btn-outline-success filter-btn active" id="btn-sale" data-layer="sale">
+                    <i class="bi bi-house-door-fill me-2"></i> Properties For Sale
+                </button>
+                <button class="btn btn-outline-purple filter-btn active" id="btn-options" data-layer="options" style="border-color: #6f42c1; color: #6f42c1;">
+                    <i class="bi bi-lightning-fill me-2"></i> Active Options Market
+                </button>
+                <button class="btn btn-outline-primary filter-btn active" id="btn-portfolio" data-layer="portfolio">
+                    <i class="bi bi-briefcase-fill me-2"></i> My Portfolio
+                </button>
             </div>
-            <div class="card-body p-2 p-sm-4">
-                <div style="position: relative; height: 400px; width: 100%;">
-                    <canvas id="priceChart"></canvas>
-                </div>
-                <script type="application/json" id="chartDataJson">
-                    {{ chart_data | tojson | safe }}
-                </script>
-                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                <script>
-                    document.addEventListener("DOMContentLoaded", function() {
-                        const chartData = JSON.parse(document.getElementById('chartDataJson').textContent);
-                        if (!chartData || chartData.dates.length === 0) {
-                            document.getElementById('priceChart').outerHTML = '<p class="text-center text-muted mt-5">No history data.</p>';
-                            return;
-                        }
-                        const ctx = document.getElementById('priceChart').getContext('2d');
-                        const forecastPoints = new Array(chartData.actual.length - 1).fill(null);
-                        forecastPoints.push(chartData.actual[chartData.actual.length - 1]);
-                        forecastPoints.push(chartData.forecast);
-                        
-                        const isMobile = window.innerWidth < 768;
 
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: chartData.dates,
-                                datasets: [
-                                    {
-                                        label: 'Actual Price',
-                                        data: chartData.actual,
-                                        borderColor: '#0d6efd',
-                                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                                        borderWidth: 3,
-                                        pointRadius: 4,
-                                        fill: true
-                                    },
-                                    {
-                                        label: 'LR Trend',
-                                        data: chartData.trend,
-                                        borderColor: '#198754',
-                                        borderDash: [5, 5],
-                                        borderWidth: 2,
-                                        pointRadius: 0,
-                                        fill: false
-                                    },
-                                    {
-                                        label: 'Moving Avg',
-                                        data: chartData.ma,
-                                        borderColor: '#fd7e14',
-                                        borderDash: [2, 2],
-                                        borderWidth: 2,
-                                        pointRadius: 0,
-                                        fill: false
-                                    },
-                                    {
-                                        label: 'LR Forecast',
-                                        data: forecastPoints,
-                                        borderColor: '#dc3545',
-                                        borderWidth: 3,
-                                        pointStyle: 'triangle',
-                                        pointRadius: 6,
-                                        borderDash: [10, 5],
-                                        fill: false
-                                    }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: { 
-                                    legend: { 
-                                        position: 'bottom',
-                                        labels: {
-                                            usePointStyle: true,
-                                            boxWidth: 8,
-                                            font: { size: isMobile ? 10 : 12 }
-                                        }
-                                    } 
-                                },
-                                scales: {
-                                    x: {
-                                        ticks: {
-                                            maxRotation: 45,
-                                            minRotation: 45,
-                                            autoSkip: true,
-                                            maxTicksLimit: isMobile ? 6 : 15,
-                                            font: { size: isMobile ? 9 : 11 }
-                                        }
-                                    },
-                                    y: { 
-                                        ticks: { 
-                                            callback: (val) => '₹' + val.toLocaleString(),
-                                            font: { size: isMobile ? 10 : 12 }
-                                        } 
-                                    }
-                                }
-                            }
-                        });
-                    });
-                </script>
+            <div class="form-check form-switch mb-4 mt-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="toggle-heat" checked>
+                <label class="form-check-label fw-bold" for="toggle-heat">Price Momentum Heatmap</label>
+            </div>
+
+            <div class="legend mt-auto" id="map-legend">
+                <strong class="d-block mb-2">Map Legend 📊</strong>
+                <div class="d-flex align-items-center mb-2">
+                    <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #28a745; margin-right: 8px;"></span> For Sale
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #6f42c1; margin-right: 8px;"></span> Open Option
+                </div>
+                <div class="d-flex align-items-center mb-3">
+                    <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #0d6efd; margin-right: 8px;"></span> Owned by You
+                </div>
+                <div class="d-flex align-items-center mb-1 small text-muted">
+                    <span style="display: inline-block; width: 15px; height: 5px; background-color: #dc3545; margin-right: 8px;"></span> High Momentum Area
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+{% block script_extra %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script>
+    const CURRENT_USER_ID = "{{ current_user_id }}";
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const map = L.map('map').setView([20.5937, 78.9629], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+        const layerGroupSale = L.markerClusterGroup();
+        const layerGroupPortfolio = L.markerClusterGroup();
+        const layerGroupOptions = L.layerGroup();
+        let heatLayer = null;
+
+        const iconBase = 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
+        const iconConf = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] };
+        
+        const iconGreen = L.icon({ iconUrl: iconBase + 'green.png', ...iconConf });
+        const iconBlue = L.icon({ iconUrl: iconBase + 'blue.png', ...iconConf });
+        const iconViolet = L.icon({ iconUrl: iconBase + 'violet.png', ...iconConf });
+
+        async function loadParcels(city) {
+            const params = city ? '?city=' + encodeURIComponent(city) : '';
+            const resp = await fetch('/api/parcels_geojson' + params);
+            const geojson = await resp.json();
+            
+            layerGroupSale.clearLayers();
+            layerGroupPortfolio.clearLayers();
+
+            L.geoJSON(geojson, {
+                pointToLayer: function (feature, latlng) {
+                    const p = feature.properties;
+                    const isOwner = p.owner_user_id === CURRENT_USER_ID;
+                    const isForSale = p.is_for_sale === 1 || p.is_for_sale === true;
+                    
+                    if (!isOwner && !isForSale) return null;
+
+                    const markerIcon = isOwner ? iconBlue : iconGreen;
+                    const marker = L.marker(latlng, { icon: markerIcon });
+                    const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
+                    
+                    let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
+                    
+                    if (isOwner) {
+                        popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
+                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
+                        marker.bindPopup(popupHtml);
+                        return layerGroupPortfolio.addLayer(marker);
+                    } else if (isForSale) {
+                        popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString()}</strong></div>`;
+                        popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
+                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
+                        marker.bindPopup(popupHtml);
+                        return layerGroupSale.addLayer(marker);
+                    }
+                    return null;
+                }
+            });
+
+            if (document.getElementById('btn-sale').classList.contains('active')) map.addLayer(layerGroupSale);
+            if (document.getElementById('btn-portfolio').classList.contains('active')) map.addLayer(layerGroupPortfolio);
+            
+            if (!city) {
+                try { map.fitBounds(layerGroupSale.getBounds().pad(0.1)); } catch (e) { }
+            }
+        }
+
+        async function loadOptions() {
+            const resp = await fetch('/api/options_geojson');
+            const geojson = await resp.json();
+            
+            layerGroupOptions.clearLayers();
+
+            L.geoJSON(geojson, {
+                pointToLayer: function (feature, latlng) {
+                    const p = feature.properties;
+                    if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return null;
+
+                    const marker = L.marker(latlng, { icon: iconViolet });
+                    let popupHtml = `<div class="text-center"><strong style="color: #6f42c1;">Option ${p.option_id}</strong><br/><small class="text-muted">Exp: ${p.expiry_date}</small></div><hr class="my-2"/>`;
+                    popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString()}</strong></div>`;
+                    popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString()}</strong></div>`;
+                    popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
+                    
+                    marker.bindPopup(popupHtml);
+                    return marker;
+                }
+            }).addTo(layerGroupOptions);
+
+            if (document.getElementById('btn-options').classList.contains('active')) map.addLayer(layerGroupOptions);
+        }
+
+        async function loadHeat() {
+            const resp = await fetch('/api/heat_by_city');
+            const data = await resp.json();
+            if (heatLayer) map.removeLayer(heatLayer);
+            if (!data || data.length === 0) return;
+            const heatPoints = data.map(d => [d.lat, d.lon, Math.max(0.1, Math.log(Number(d.avg_price || 1)) / 10)]);
+            heatLayer = L.heatLayer(heatPoints, {
+                radius: 30, blur: 20, maxZoom: 12,
+                gradient: { 0.2: '#008744', 0.4: '#38b000', 0.6: '#ffc107', 0.8: '#ff6600', 1.0: '#dc3545' }
+            });
+            if (document.getElementById('toggle-heat').checked) heatLayer.addTo(map);
+        }
+
+        loadParcels(); loadOptions(); loadHeat();
+
+        document.getElementById('city-filter').addEventListener('change', function (e) { loadParcels(e.target.value); });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.classList.toggle('active');
+                const layer = this.getAttribute('data-layer');
+                if (layer === 'sale') {
+                    this.classList.contains('active') ? map.addLayer(layerGroupSale) : map.removeLayer(layerGroupSale);
+                } else if (layer === 'options') {
+                    this.classList.contains('active') ? map.addLayer(layerGroupOptions) : map.removeLayer(layerGroupOptions);
+                    if(this.classList.contains('active')) {
+                        this.style.backgroundColor = '#6f42c1';
+                        this.style.color = '#fff';
+                    } else {
+                        this.style.backgroundColor = 'transparent';
+                        this.style.color = '#6f42c1';
+                    }
+                } else if (layer === 'portfolio') {
+                    this.classList.contains('active') ? map.addLayer(layerGroupPortfolio) : map.removeLayer(layerGroupPortfolio);
+                }
+            });
+        });
+
+        document.getElementById('btn-options').style.backgroundColor = '#6f42c1';
+        document.getElementById('btn-options').style.color = '#fff';
+
+        document.getElementById('toggle-heat').addEventListener('change', function (e) { 
+            if (e.target.checked && heatLayer) map.addLayer(heatLayer); 
+            else if (heatLayer) map.removeLayer(heatLayer); 
+        });
+    });
+</script>
 {% endblock %}
