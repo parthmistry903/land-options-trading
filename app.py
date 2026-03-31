@@ -82,6 +82,8 @@ def logout():
 
 def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
     features = []
+    if not rows:
+        return {"type": "FeatureCollection", "features": features}
     for r in rows:
         lat = r.get(lat_key)
         lon = r.get(lon_key)
@@ -98,8 +100,8 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
 @app.route("/map")
 @login_required
 def map_page():
-    cities = execute_query("SELECT DISTINCT city FROM Parcels WHERE city IS NOT NULL", fetch_all=True)
-    cities = [c["city"] for c in cities] if cities else []
+    cities_data = execute_query("SELECT DISTINCT city FROM Parcels WHERE city IS NOT NULL", fetch_all=True)
+    cities = [c["city"] for c in cities_data] if cities_data else []
     return render_template("map.html", cities=cities, current_user_id=current_user.id)
 
 @app.route("/api/parcels_geojson")
@@ -126,6 +128,8 @@ def api_options_geojson():
 def api_heat_by_city():
     sql = "SELECT city, AVG(base_price_inr) as avg_price, COUNT(*) as count, MAX(latitude) as lat, MAX(longitude) as lon FROM Parcels WHERE latitude IS NOT NULL AND longitude IS NOT NULL GROUP BY city"
     rows = execute_query(sql, fetch_all=True)
+    if not rows:
+        return jsonify([])
     return jsonify(rows)
 
 def format_inr(amount):
@@ -145,13 +149,13 @@ def index():
     users = execute_query("SELECT user_id, username, balance_cash FROM Users ORDER BY balance_cash DESC LIMIT 5", fetch_all=True)
     open_count = execute_query("SELECT COUNT(*) as count FROM Options WHERE status = 'Open'", fetch_all=False)
     stats = {
-        "users_count": execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False)["count"],
-        "parcels_count": execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False)["count"],
-        "price_history_count": execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False)["count"],
-        "total_options_count": execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False)["count"],
-        "trades_count": execute_query("SELECT COUNT(*) as count FROM Trades", fetch_all=False)["count"]
+        "users_count": execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False).get("count", 0),
+        "parcels_count": execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False).get("count", 0),
+        "price_history_count": execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False).get("count", 0),
+        "total_options_count": execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False).get("count", 0),
+        "trades_count": execute_query("SELECT COUNT(*) as count FROM Trades", fetch_all=False).get("count", 0)
     }
-    return render_template("dashboard.html", users=users, open_options_count=open_count["count"], stats=stats)
+    return render_template("dashboard.html", users=users, open_options_count=open_count.get("count", 0) if open_count else 0, stats=stats)
 
 @app.route("/users")
 @login_required
@@ -230,7 +234,7 @@ def delete_user(user_id):
     parcels_count = execute_query("SELECT COUNT(*) as count FROM Parcels WHERE owner_user_id = %s", (user_id,), fetch_all=False)
     options_count = execute_query("SELECT COUNT(*) as count FROM Options WHERE seller_user_id = %s OR buyer_user_id = %s", (user_id, user_id), fetch_all=False)
     trades_count = execute_query("SELECT COUNT(*) as count FROM Trades WHERE seller_user_id = %s OR buyer_user_id = %s", (user_id, user_id), fetch_all=False)
-    if (parcels_count and parcels_count["count"] > 0) or (options_count and options_count["count"] > 0) or (trades_count and trades_count["count"] > 0):
+    if (parcels_count and parcels_count.get("count", 0) > 0) or (options_count and options_count.get("count", 0) > 0) or (trades_count and trades_count.get("count", 0) > 0):
         flash("Deletion failed: This user is linked to existing Parcels, Options, or Trades.", "danger")
         return redirect(url_for("list_users"))
     success = execute_query("DELETE FROM Users WHERE user_id = %s", (user_id,))
@@ -283,7 +287,7 @@ def view_parcel(parcel_id):
         "ma": [p["price"] for p in analytics["moving_average"]],
         "forecast": analytics["forecasted_price"]
     }
-    active_price = parcel["listing_price_inr"] if parcel.get("listing_price_inr") else (history[-1]["price_inr"] if history else parcel["base_price_inr"])
+    active_price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else (history[-1]["price_inr"] if history else parcel["base_price_inr"])
     
     return render_template("parcel_detail.html", parcel=parcel, current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"], forecasted_price=analytics["forecasted_price"], chart_data=chart_data, active_price=active_price)
 
@@ -325,7 +329,7 @@ def buy_parcel(parcel_id):
         flash("Transaction failed: Parcel not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
     
-    price = parcel["listing_price_inr"] if parcel["listing_price_inr"] else parcel["base_price_inr"]
+    price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"]
     seller_id = parcel["owner_user_id"]
     
     queries = [
@@ -427,6 +431,10 @@ def settle_options():
     expired_options = execute_query("SELECT O.option_id, O.parcel_id, O.strike_inr, O.buyer_user_id, O.seller_user_id, P.base_price_inr FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id WHERE O.status = 'Traded' AND O.expiry_date <= CURDATE()", fetch_all=True)
     settlement_results = []
     success_count = 0
+    if not expired_options:
+        flash("No expired options found.", "info")
+        return render_template("settlement.html", results=settlement_results)
+        
     for option in expired_options:
         latest_price_record = execute_query("SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 1", (option["parcel_id"],), fetch_all=False)
         settlement_price = latest_price_record["price_inr"] if latest_price_record else option["base_price_inr"]
@@ -446,12 +454,11 @@ def settle_options():
                 "option_id": option["option_id"], "settlement_price": settlement_price,
                 "strike": strike, "payout": payout, "result": status_update
             })
+            
     if success_count > 0:
         flash(f"Settlement complete. {success_count} options processed.", "success")
-    elif expired_options:
-        flash("Settlement encountered errors on some options.", "warning")
     else:
-        flash("No expired options found.", "info")
+        flash("Settlement encountered errors on some options.", "warning")
     return render_template("settlement.html", results=settlement_results)
 
 @app.route('/deposit', methods=['POST'])
