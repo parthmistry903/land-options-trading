@@ -112,7 +112,8 @@
         const layerGroupOptions = L.layerGroup();
         let heatLayer = null;
 
-        const iconBase = 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
+        // FIX: Using the highly reliable Raw GitHub user content CDN to prevent 404 image blocking
+        const iconBase = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
         const iconConf = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] };
         
         const iconGreen = L.icon({ iconUrl: iconBase + 'green.png', ...iconConf });
@@ -121,98 +122,113 @@
         const iconGrey = L.icon({ iconUrl: iconBase + 'grey.png', ...iconConf });
 
         async function loadParcels(city) {
-            const params = city ? '?city=' + encodeURIComponent(city) : '';
-            const resp = await fetch('/api/parcels_geojson' + params);
-            const geojson = await resp.json();
-            
-            layerGroupSale.clearLayers();
-            layerGroupPortfolio.clearLayers();
-            layerGroupGeneral.clearLayers();
+            try {
+                const params = city ? '?city=' + encodeURIComponent(city) : '';
+                const resp = await fetch('/api/parcels_geojson' + params);
+                if (!resp.ok) throw new Error("API Fetch Failed");
+                const geojson = await resp.json();
+                
+                layerGroupSale.clearLayers();
+                layerGroupPortfolio.clearLayers();
+                layerGroupGeneral.clearLayers();
 
-            if (geojson.features) {
-                geojson.features.forEach(feature => {
-                    const p = feature.properties;
-                    const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
-                    
-                    const isOwner = p.owner_user_id === CURRENT_USER_ID;
-                    const isForSale = String(p.is_for_sale) === '1' || String(p.is_for_sale).toLowerCase() === 'true';
-                    
-                    let markerIcon = iconGrey;
-                    if (isOwner) markerIcon = iconBlue;
-                    else if (isForSale) markerIcon = iconGreen;
+                if (geojson.features) {
+                    geojson.features.forEach(feature => {
+                        const p = feature.properties;
+                        const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+                        
+                        const isOwner = p.owner_user_id === CURRENT_USER_ID;
+                        const isForSale = String(p.is_for_sale) === '1' || String(p.is_for_sale).toLowerCase() === 'true';
+                        
+                        let markerIcon = iconGrey;
+                        if (isOwner) markerIcon = iconBlue;
+                        else if (isForSale) markerIcon = iconGreen;
 
-                    const marker = L.marker(latlng, { icon: markerIcon });
-                    
-                    let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
-                    
-                    if (isOwner) {
-                        popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
-                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
-                        marker.bindPopup(popupHtml);
-                        layerGroupPortfolio.addLayer(marker);
-                    } else if (isForSale) {
-                        const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
-                        popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString()}</strong></div>`;
-                        popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
-                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
-                        marker.bindPopup(popupHtml);
-                        layerGroupSale.addLayer(marker);
-                    } else {
-                        popupHtml += `<div class="mb-2 text-muted fw-bold">Not Listed for Sale</div>`;
-                        popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString()}</div>`;
-                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-secondary w-100">View Data</a>`;
-                        marker.bindPopup(popupHtml);
-                        layerGroupGeneral.addLayer(marker);
-                    }
-                });
-            }
+                        const marker = L.marker(latlng, { icon: markerIcon });
+                        
+                        let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
+                        
+                        if (isOwner) {
+                            popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
+                            popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
+                            marker.bindPopup(popupHtml);
+                            layerGroupPortfolio.addLayer(marker);
+                        } else if (isForSale) {
+                            const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
+                            popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString()}</strong></div>`;
+                            popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
+                            popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
+                            marker.bindPopup(popupHtml);
+                            layerGroupSale.addLayer(marker);
+                        } else {
+                            popupHtml += `<div class="mb-2 text-muted fw-bold">Not Listed for Sale</div>`;
+                            popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString()}</div>`;
+                            popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-secondary w-100">View Data</a>`;
+                            marker.bindPopup(popupHtml);
+                            layerGroupGeneral.addLayer(marker);
+                        }
+                    });
+                }
 
-            if (document.getElementById('btn-sale').classList.contains('active')) map.addLayer(layerGroupSale);
-            if (document.getElementById('btn-portfolio').classList.contains('active')) map.addLayer(layerGroupPortfolio);
-            if (document.getElementById('btn-general').classList.contains('active')) map.addLayer(layerGroupGeneral);
-            
-            if (!city && layerGroupGeneral.getLayers().length > 0) {
-                try { map.fitBounds(layerGroupGeneral.getBounds().pad(0.1)); } catch (e) { }
+                if (document.getElementById('btn-sale').classList.contains('active')) map.addLayer(layerGroupSale);
+                if (document.getElementById('btn-portfolio').classList.contains('active')) map.addLayer(layerGroupPortfolio);
+                if (document.getElementById('btn-general').classList.contains('active')) map.addLayer(layerGroupGeneral);
+                
+                if (!city && layerGroupGeneral.getLayers().length > 0) {
+                    try { map.fitBounds(layerGroupGeneral.getBounds().pad(0.1)); } catch (e) { }
+                }
+            } catch (err) {
+                console.error("Map Parcel Render Blocked:", err);
             }
         }
 
         async function loadOptions() {
-            const resp = await fetch('/api/options_geojson');
-            const geojson = await resp.json();
-            
-            layerGroupOptions.clearLayers();
+            try {
+                const resp = await fetch('/api/options_geojson');
+                if (!resp.ok) return;
+                const geojson = await resp.json();
+                
+                layerGroupOptions.clearLayers();
 
-            if (geojson.features) {
-                geojson.features.forEach(feature => {
-                    const p = feature.properties;
-                    if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return;
+                if (geojson.features) {
+                    geojson.features.forEach(feature => {
+                        const p = feature.properties;
+                        if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return;
 
-                    const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
-                    const marker = L.marker(latlng, { icon: iconViolet });
-                    let popupHtml = `<div class="text-center"><strong style="color: #6f42c1;">Option ${p.option_id}</strong><br/><small class="text-muted">Exp: ${p.expiry_date}</small></div><hr class="my-2"/>`;
-                    popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString()}</strong></div>`;
-                    popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString()}</strong></div>`;
-                    popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
-                    
-                    marker.bindPopup(popupHtml);
-                    layerGroupOptions.addLayer(marker);
-                });
+                        const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+                        const marker = L.marker(latlng, { icon: iconViolet });
+                        let popupHtml = `<div class="text-center"><strong style="color: #6f42c1;">Option ${p.option_id}</strong><br/><small class="text-muted">Exp: ${p.expiry_date}</small></div><hr class="my-2"/>`;
+                        popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString()}</strong></div>`;
+                        popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString()}</strong></div>`;
+                        popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
+                        
+                        marker.bindPopup(popupHtml);
+                        layerGroupOptions.addLayer(marker);
+                    });
+                }
+
+                if (document.getElementById('btn-options').classList.contains('active')) map.addLayer(layerGroupOptions);
+            } catch (err) {
+                console.error("Options loading skipped.");
             }
-
-            if (document.getElementById('btn-options').classList.contains('active')) map.addLayer(layerGroupOptions);
         }
 
         async function loadHeat() {
-            const resp = await fetch('/api/heat_by_city');
-            const data = await resp.json();
-            if (heatLayer) map.removeLayer(heatLayer);
-            if (!data || data.length === 0) return;
-            const heatPoints = data.map(d => [d.lat, d.lon, Math.max(0.1, Math.log(Number(d.avg_price || 1)) / 10)]);
-            heatLayer = L.heatLayer(heatPoints, {
-                radius: 30, blur: 20, maxZoom: 12,
-                gradient: { 0.2: '#008744', 0.4: '#38b000', 0.6: '#ffc107', 0.8: '#ff6600', 1.0: '#dc3545' }
-            });
-            if (document.getElementById('toggle-heat').checked) heatLayer.addTo(map);
+            try {
+                const resp = await fetch('/api/heat_by_city');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (heatLayer) map.removeLayer(heatLayer);
+                if (!data || data.length === 0) return;
+                const heatPoints = data.map(d => [d.lat, d.lon, Math.max(0.1, Math.log(Number(d.avg_price || 1)) / 10)]);
+                heatLayer = L.heatLayer(heatPoints, {
+                    radius: 30, blur: 20, maxZoom: 12,
+                    gradient: { 0.2: '#008744', 0.4: '#38b000', 0.6: '#ffc107', 0.8: '#ff6600', 1.0: '#dc3545' }
+                });
+                if (document.getElementById('toggle-heat').checked) heatLayer.addTo(map);
+            } catch(err) {
+                // Ignore heatmap failure
+            }
         }
 
         loadParcels(); loadOptions(); loadHeat();
