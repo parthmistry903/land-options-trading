@@ -2,6 +2,7 @@ import mysql.connector
 from mysql.connector import Error, ClientFlag
 import os
 
+
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST", "land-options-db-landoptionstrading.h.aivencloud.com"),
     "port": int(os.environ.get("DB_PORT", 18174)),
@@ -12,6 +13,7 @@ DB_CONFIG = {
     "client_flags": [ClientFlag.FOUND_ROWS]
 }
 
+
 def get_db_connection():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
@@ -20,6 +22,7 @@ def get_db_connection():
     except Error:
         return None
     return None
+
 
 def execute_query(sql, params=None, fetch_all=False):
     conn = get_db_connection()
@@ -41,6 +44,7 @@ def execute_query(sql, params=None, fetch_all=False):
             cursor.close()
         if conn:
             conn.close()
+
 
 def execute_transaction(queries):
     conn = get_db_connection()
