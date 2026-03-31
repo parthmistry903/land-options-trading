@@ -5,6 +5,7 @@ import numpy as np
 FORECAST_DAYS = 30
 MA_WINDOW = 6
 
+
 def preprocess_history(history_data):
     df = pd.DataFrame(history_data)
     if df.empty:
@@ -13,6 +14,7 @@ def preprocess_history(history_data):
     df = df.sort_values("record_date").reset_index(drop=True)
     df["days"] = (df["record_date"] - df["record_date"].min()).dt.days
     return df, df["record_date"].min(), df["record_date"].max()
+
 
 def get_land_price_analytics(history_data):
     df, min_date, max_date = preprocess_history(history_data)
@@ -38,6 +40,7 @@ def get_land_price_analytics(history_data):
     df["ma_price"] = df["price_inr"].rolling(window=MA_WINDOW, min_periods=1).mean()
     analytics["moving_average"] = [{"date": row["record_date"], "price": int(row["ma_price"])} for index, row in df.dropna(subset=["ma_price"]).iterrows()]
     return analytics
+
 
 def calculate_fair_option_premium(predicted_price, strike_price):
     if predicted_price is None or strike_price is None:
