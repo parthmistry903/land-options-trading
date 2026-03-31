@@ -63,6 +63,9 @@
                 <button class="btn btn-outline-primary filter-btn active" id="btn-portfolio" data-layer="portfolio">
                     <i class="bi bi-briefcase-fill me-2"></i> My Portfolio
                 </button>
+                <button class="btn btn-outline-secondary filter-btn active" id="btn-general" data-layer="general">
+                    <i class="bi bi-globe-central-south-asia me-2"></i> General Land (Not for Sale)
+                </button>
             </div>
 
             <div class="form-check form-switch mb-4 mt-2">
@@ -78,8 +81,11 @@
                 <div class="d-flex align-items-center mb-2">
                     <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #6f42c1; margin-right: 8px;"></span> Open Option
                 </div>
-                <div class="d-flex align-items-center mb-3">
+                <div class="d-flex align-items-center mb-2">
                     <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #0d6efd; margin-right: 8px;"></span> Owned by You
+                </div>
+                <div class="d-flex align-items-center mb-3">
+                    <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #6c757d; margin-right: 8px;"></span> Not For Sale
                 </div>
                 <div class="d-flex align-items-center mb-1 small text-muted">
                     <span style="display: inline-block; width: 15px; height: 5px; background-color: #dc3545; margin-right: 8px;"></span> High Momentum Area
@@ -102,6 +108,7 @@
 
         const layerGroupSale = L.markerClusterGroup();
         const layerGroupPortfolio = L.markerClusterGroup();
+        const layerGroupGeneral = L.markerClusterGroup();
         const layerGroupOptions = L.layerGroup();
         let heatLayer = null;
 
@@ -111,6 +118,7 @@
         const iconGreen = L.icon({ iconUrl: iconBase + 'green.png', ...iconConf });
         const iconBlue = L.icon({ iconUrl: iconBase + 'blue.png', ...iconConf });
         const iconViolet = L.icon({ iconUrl: iconBase + 'violet.png', ...iconConf });
+        const iconGrey = L.icon({ iconUrl: iconBase + 'grey.png', ...iconConf });
 
         async function loadParcels(city) {
             const params = city ? '?city=' + encodeURIComponent(city) : '';
@@ -119,18 +127,21 @@
             
             layerGroupSale.clearLayers();
             layerGroupPortfolio.clearLayers();
+            layerGroupGeneral.clearLayers();
 
-            L.geoJSON(geojson, {
-                pointToLayer: function (feature, latlng) {
+            if (geojson.features) {
+                geojson.features.forEach(feature => {
                     const p = feature.properties;
-                    const isOwner = p.owner_user_id === CURRENT_USER_ID;
-                    const isForSale = p.is_for_sale == 1 || p.is_for_sale === true || p.is_for_sale === '1';
+                    const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
                     
-                    if (!isOwner && !isForSale) return null;
+                    const isOwner = p.owner_user_id === CURRENT_USER_ID;
+                    const isForSale = String(p.is_for_sale) === '1' || String(p.is_for_sale).toLowerCase() === 'true';
+                    
+                    let markerIcon = iconGrey;
+                    if (isOwner) markerIcon = iconBlue;
+                    else if (isForSale) markerIcon = iconGreen;
 
-                    const markerIcon = isOwner ? iconBlue : iconGreen;
                     const marker = L.marker(latlng, { icon: markerIcon });
-                    const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
                     
                     let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
                     
@@ -138,23 +149,30 @@
                         popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
                         popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
                         marker.bindPopup(popupHtml);
-                        return layerGroupPortfolio.addLayer(marker);
+                        layerGroupPortfolio.addLayer(marker);
                     } else if (isForSale) {
+                        const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
                         popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString()}</strong></div>`;
                         popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
                         popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
                         marker.bindPopup(popupHtml);
-                        return layerGroupSale.addLayer(marker);
+                        layerGroupSale.addLayer(marker);
+                    } else {
+                        popupHtml += `<div class="mb-2 text-muted fw-bold">Not Listed for Sale</div>`;
+                        popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString()}</div>`;
+                        popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-secondary w-100">View Data</a>`;
+                        marker.bindPopup(popupHtml);
+                        layerGroupGeneral.addLayer(marker);
                     }
-                    return null;
-                }
-            });
+                });
+            }
 
             if (document.getElementById('btn-sale').classList.contains('active')) map.addLayer(layerGroupSale);
             if (document.getElementById('btn-portfolio').classList.contains('active')) map.addLayer(layerGroupPortfolio);
+            if (document.getElementById('btn-general').classList.contains('active')) map.addLayer(layerGroupGeneral);
             
-            if (!city && layerGroupSale.getLayers().length > 0) {
-                try { map.fitBounds(layerGroupSale.getBounds().pad(0.1)); } catch (e) { }
+            if (!city && layerGroupGeneral.getLayers().length > 0) {
+                try { map.fitBounds(layerGroupGeneral.getBounds().pad(0.1)); } catch (e) { }
             }
         }
 
@@ -164,11 +182,12 @@
             
             layerGroupOptions.clearLayers();
 
-            L.geoJSON(geojson, {
-                pointToLayer: function (feature, latlng) {
+            if (geojson.features) {
+                geojson.features.forEach(feature => {
                     const p = feature.properties;
-                    if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return null;
+                    if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return;
 
+                    const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
                     const marker = L.marker(latlng, { icon: iconViolet });
                     let popupHtml = `<div class="text-center"><strong style="color: #6f42c1;">Option ${p.option_id}</strong><br/><small class="text-muted">Exp: ${p.expiry_date}</small></div><hr class="my-2"/>`;
                     popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString()}</strong></div>`;
@@ -176,9 +195,9 @@
                     popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
                     
                     marker.bindPopup(popupHtml);
-                    return marker;
-                }
-            }).addTo(layerGroupOptions);
+                    layerGroupOptions.addLayer(marker);
+                });
+            }
 
             if (document.getElementById('btn-options').classList.contains('active')) map.addLayer(layerGroupOptions);
         }
@@ -217,6 +236,8 @@
                     }
                 } else if (layer === 'portfolio') {
                     this.classList.contains('active') ? map.addLayer(layerGroupPortfolio) : map.removeLayer(layerGroupPortfolio);
+                } else if (layer === 'general') {
+                    this.classList.contains('active') ? map.addLayer(layerGroupGeneral) : map.removeLayer(layerGroupGeneral);
                 }
             });
         });
