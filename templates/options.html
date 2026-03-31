@@ -44,7 +44,9 @@
                 <td class="align-middle">{{ option.strike_inr | inr }}</td>
                 <td class="align-middle"><strong>{{ option.premium_inr | inr }}</strong></td>
                 <td class="align-middle">{{ option.expiry_date | date }}</td>
-                <td class="align-middle"><a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a></td>
+                <td class="align-middle">
+                    <a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a>
+                </td>
                 <td class="align-middle">
                     {% if option.buyer_name %}
                     <a href="{{ url_for('view_user', user_id=option.buyer_user_id) }}">{{ option.buyer_name }}</a>
