@@ -89,6 +89,11 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
         lon = r.get(lon_key)
         if lat is None or lon is None:
             continue
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except (ValueError, TypeError):
+            continue
         props = {k: v for k, v in r.items() if k not in (lat_key, lon_key)}
         features.append({
             "type": "Feature",
