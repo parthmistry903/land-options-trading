@@ -1,8 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-import numpy as np
 from datetime import datetime, date
-from valuation import get_land_price_analytics, calculate_fair_option_premium
+from valuation import get_land_price_analytics
 from db import execute_query, execute_transaction
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -463,7 +462,7 @@ def settle_options():
 @login_required
 def deposit_funds():
     amount = request.form.get('amount', type=float)
-    if amount and 0 < amount <= 10000000:
+    if amount and 0 < amount <= 1000000000:
         success = execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (amount, current_user.id))
         if success:
             flash(f"Deposited INR {amount:,.2f}.", "success")
