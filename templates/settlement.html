@@ -5,8 +5,14 @@
     <div class="col-12 col-lg-10">
         <h1 class="mb-4">Options Settlement Engine <i class="bi bi-gear-fill text-muted"></i></h1>
         <div class="alert alert-warning border-warning shadow-sm" role="alert">
-            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Admin Execution Warning</h4>
-            <p class="mb-0">Running this function will permanently evaluate all 'Traded' options against today's date. Any expired options will be irrevocably settled, updating their status to ITM/OTM and permanently modifying buyer and seller cash balances according to intrinsic values.</p>
+            <h4 class="alert-heading">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>Admin Execution Warning
+            </h4>
+            <p class="mb-0">
+                Running this function will permanently evaluate all 'Traded' options against today's date.
+                Any expired options will be irrevocably settled, updating their status to ITM/OTM and
+                permanently modifying buyer and seller cash balances according to intrinsic values.
+            </p>
         </div>
         <div class="card shadow-sm border-0 mb-5">
             <div class="card-body p-4 p-md-5 text-center">
@@ -22,7 +28,10 @@
         {% if results %}
         <div class="card shadow-sm border-0">
             <div class="card-header bg-dark text-white py-3">
-                <h5 class="mb-0 fw-bold">Settlement Results Log <span class="badge bg-light text-dark ms-2">{{ results | length }} Processed</span></h5>
+                <h5 class="mb-0 fw-bold">
+                    Settlement Results Log
+                    <span class="badge bg-light text-dark ms-2">{{ results | length }} Processed</span>
+                </h5>
             </div>
             <div class="table-responsive text-nowrap m-0">
                 <table class="table table-striped table-hover mb-0">
