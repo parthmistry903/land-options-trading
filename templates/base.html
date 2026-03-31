@@ -16,6 +16,7 @@
             --dashboard-top-users: #FD5C63;
             --dashboard-stats: #6C5CE7;
         }
+
         [data-bs-theme="dark"] {
             --bs-body-bg: #1A1A2E;
             --bs-body-color: #f1f1f1;
@@ -26,54 +27,68 @@
             --dashboard-top-users: #FF9F1C;
             --dashboard-stats: #9D72FF;
         }
+
         .navbar.bg-primary {
             background: var(--primary-bg) !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         }
+
         .navbar-brand {
             font-weight: 700;
             letter-spacing: 1px;
         }
+
         .card {
             border: none;
             border-radius: 0.75rem;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease-in-out;
         }
+
         .card:hover {
             transform: translateY(-6px);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
         }
+
         .bg-info.custom {
             background-color: var(--dashboard-open-options) !important;
             color: #fff;
         }
+
         .bg-success.custom {
             background-color: var(--dashboard-top-users) !important;
             color: #fff;
         }
+
         .bg-secondary.custom {
             background-color: var(--dashboard-stats) !important;
             color: #fff;
         }
+
         [data-bs-theme="light"] .card .btn-light {
             color: #000 !important;
             background-color: rgba(255, 255, 255, 0.9) !important;
             border-color: rgba(255, 255, 255, 0.7) !important;
         }
+
         [data-bs-theme="dark"] .card .btn-light {
             color: var(--bs-body-bg) !important;
             background-color: #f1f1f1 !important;
             border-color: #f1f1f1 !important;
         }
-        .card.bg-info a, .card.bg-success a, .card.bg-secondary a {
+
+        .card.bg-info a,
+        .card.bg-success a,
+        .card.bg-secondary a {
             font-weight: bold;
             color: #fff;
             text-decoration: underline;
         }
+
         .alert {
             border-radius: 0.5rem;
         }
+
         .table-responsive {
             -webkit-overflow-scrolling: touch;
         }
@@ -149,6 +164,7 @@
             const toggleButton = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
             const htmlElement = document.documentElement;
+
             function setTheme(theme) {
                 htmlElement.setAttribute('data-bs-theme', theme);
                 localStorage.setItem('theme', theme);
@@ -160,8 +176,10 @@
                     themeIcon.classList.add('bi-moon-fill');
                 }
             }
+
             const savedTheme = localStorage.getItem('theme') || 'light';
             setTheme(savedTheme);
+
             toggleButton.addEventListener('click', function () {
                 const currentTheme = htmlElement.getAttribute('data-bs-theme');
                 const newTheme = currentTheme === 'light' ? 'dark' : 'light';
