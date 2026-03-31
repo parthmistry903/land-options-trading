@@ -1,16 +1,28 @@
 {% extends "base.html" %}
 {% block title %}User: {{ user.username }}{% endblock %}
 {% block content %}
-<h1 class="mb-4 fs-2">{{ user.full_name }} <span class="text-muted fs-4">(@{{ user.username }})</span></h1>
+<h1 class="mb-4 fs-2">
+    {{ user.full_name }}
+    <span class="text-muted fs-4">(@{{ user.username }})</span>
+</h1>
 <div class="row g-4">
     <div class="col-12 col-lg-5">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-primary text-white fw-bold">User Details</div>
             <div class="card-body d-flex flex-column">
                 <div class="mb-4">
-                    <p class="mb-1"><span class="text-muted small text-uppercase fw-bold">User ID</span><br/><strong>{{ user.user_id }}</strong></p>
-                    <p class="mb-1 mt-3"><span class="text-muted small text-uppercase fw-bold">Email</span><br/>{{ user.email }}</p>
-                    <p class="mb-1 mt-3"><span class="text-muted small text-uppercase fw-bold">Member Since</span><br/>{{ user.registration_date | date }}</p>
+                    <p class="mb-1">
+                        <span class="text-muted small text-uppercase fw-bold">User ID</span><br />
+                        <strong>{{ user.user_id }}</strong>
+                    </p>
+                    <p class="mb-1 mt-3">
+                        <span class="text-muted small text-uppercase fw-bold">Email</span><br />
+                        {{ user.email }}
+                    </p>
+                    <p class="mb-1 mt-3">
+                        <span class="text-muted small text-uppercase fw-bold">Member Since</span><br />
+                        {{ user.registration_date | date }}
+                    </p>
                 </div>
                 <div class="p-3 bg-light rounded text-center mb-auto" data-bs-theme="light">
                     <span class="text-muted small text-uppercase fw-bold d-block mb-1">Available Cash Balance</span>
@@ -56,7 +68,9 @@
                             <a href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}" class="fw-bold text-decoration-none d-block mb-1">
                                 {{ parcel.address }}
                             </a>
-                            <span class="badge bg-info text-dark"><i class="bi bi-geo-alt-fill"></i> {{ parcel.city }}</span>
+                            <span class="badge bg-info text-dark">
+                                <i class="bi bi-geo-alt-fill"></i> {{ parcel.city }}
+                            </span>
                         </div>
                         <h5 class="text-success fw-bold mb-0">{{ parcel.base_price_inr | inr }}</h5>
                     </li>
@@ -88,7 +102,9 @@
             <tr>
                 <td class="align-middle text-muted">{{ trade.trade_id }}</td>
                 <td class="align-middle">{{ trade.trade_date | date }}</td>
-                <td class="align-middle"><a href="{{ url_for('list_options') }}?search={{ trade.option_id }}" class="fw-bold">{{ trade.option_id }}</a></td>
+                <td class="align-middle">
+                    <a href="{{ url_for('list_options') }}?search={{ trade.option_id }}" class="fw-bold">{{ trade.option_id }}</a>
+                </td>
                 <td class="align-middle">{{ trade.address }}, {{ trade.city }}</td>
                 <td class="align-middle text-success fw-bold">{{ trade.trade_price_inr | inr }}</td>
             </tr>
