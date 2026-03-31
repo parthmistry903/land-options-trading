@@ -100,14 +100,14 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
 def map_page():
     cities = execute_query("SELECT DISTINCT city FROM Parcels WHERE city IS NOT NULL", fetch_all=True)
     cities = [c["city"] for c in cities] if cities else []
-    return render_template("map.html", cities=cities)
+    return render_template("map.html", cities=cities, current_user_id=current_user.id)
 
 @app.route("/api/parcels_geojson")
 @login_required
 def api_parcels_geojson():
     city = request.args.get("city")
     params = []
-    sql = "SELECT P.parcel_id, P.address, P.city, P.state, P.base_price_inr, P.owner_user_id, U.username as owner_name, P.latitude, P.longitude FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
+    sql = "SELECT P.parcel_id, P.address, P.city, P.state, P.base_price_inr, P.listing_price_inr, P.is_for_sale, P.owner_user_id, U.username as owner_name, P.latitude, P.longitude FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
     if city:
         sql += " AND P.city = %s"
         params.append(city)
@@ -283,7 +283,6 @@ def view_parcel(parcel_id):
         "ma": [p["price"] for p in analytics["moving_average"]],
         "forecast": analytics["forecasted_price"]
     }
-    # For buying logic: the price to pay is the listing_price if set, else valuation
     active_price = parcel["listing_price_inr"] if parcel.get("listing_price_inr") else (history[-1]["price_inr"] if history else parcel["base_price_inr"])
     
     return render_template("parcel_detail.html", parcel=parcel, current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"], forecasted_price=analytics["forecasted_price"], chart_data=chart_data, active_price=active_price)
@@ -301,14 +300,12 @@ def toggle_sale(parcel_id):
     asking_price = request.form.get('asking_price')
     
     if new_status:
-        # User is listing the property
         if not asking_price:
             flash("You must set an asking price to list the property.", "warning")
             return redirect(url_for("view_parcel", parcel_id=parcel_id))
         execute_query("UPDATE Parcels SET is_for_sale = %s, listing_price_inr = %s WHERE parcel_id = %s", (new_status, asking_price, parcel_id))
         flash(f"Parcel listed for sale at INR {float(asking_price):,.0f}.", "success")
     else:
-        # User is delisting
         execute_query("UPDATE Parcels SET is_for_sale = %s, listing_price_inr = NULL WHERE parcel_id = %s", (new_status, parcel_id))
         flash("Parcel successfully removed from sale.", "info")
         
@@ -328,7 +325,6 @@ def buy_parcel(parcel_id):
         flash("Transaction failed: Parcel not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
     
-    # Priority: User Asking Price > Base Price
     price = parcel["listing_price_inr"] if parcel["listing_price_inr"] else parcel["base_price_inr"]
     seller_id = parcel["owner_user_id"]
     
