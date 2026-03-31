@@ -28,10 +28,12 @@ def execute_query(sql, params=None, fetch_all=False):
     conn = get_db_connection()
     if not conn:
         return [] if fetch_all else False
+
     cursor = None
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(sql, params or ())
+
         if sql.strip().upper().startswith("SELECT"):
             return cursor.fetchall() if fetch_all else cursor.fetchone()
         else:
@@ -50,14 +52,17 @@ def execute_transaction(queries):
     conn = get_db_connection()
     if not conn:
         return False
+
     cursor = None
     try:
         cursor = conn.cursor()
         conn.start_transaction()
+
         for sql, params in queries:
             cursor.execute(sql, params)
             if sql.strip().upper().startswith("UPDATE") and cursor.rowcount == 0:
                 raise Exception()
+
         conn.commit()
         return True
     except Exception:
