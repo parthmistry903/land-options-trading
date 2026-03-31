@@ -89,20 +89,16 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
         raw_lat = r.get(lat_key)
         raw_lon = r.get(lon_key)
         
-        # SKIP if the database literally returned NULL for coordinates
         if raw_lat is None or raw_lon is None:
             continue
             
         try:
-            # FORCE the coordinates to be strict numbers so Leaflet doesn't crash
             lat = float(raw_lat)
             lon = float(raw_lon)
         except (ValueError, TypeError):
-            # If the database sent garbage text instead of a number, skip it
             continue
             
         props = {k: v for k, v in r.items() if k not in (lat_key, lon_key)}
-        
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [lon, lat]},
@@ -123,7 +119,8 @@ def map_page():
 def api_parcels_geojson():
     city = request.args.get("city")
     params = []
-    sql = "SELECT P.parcel_id, P.address, P.city, P.state, P.base_price_inr, P.listing_price_inr, P.is_for_sale, P.owner_user_id, U.username as owner_name, P.latitude, P.longitude FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
+    # FIX: Using P.* prevents a 500 error if the listing_price_inr column is missing in DB
+    sql = "SELECT P.*, U.username as owner_name FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
     if city:
         sql += " AND P.city = %s"
         params.append(city)
@@ -133,7 +130,7 @@ def api_parcels_geojson():
 @app.route("/api/options_geojson")
 @login_required
 def api_options_geojson():
-    sql = "SELECT O.option_id, O.parcel_id, O.strike_inr, O.premium_inr, O.issue_date, O.expiry_date, O.status, P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id LEFT JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
+    sql = "SELECT O.*, P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id LEFT JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
     rows = execute_query(sql, fetch_all=True)
     return jsonify(rows_to_geojson(rows))
 
