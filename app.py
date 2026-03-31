@@ -13,17 +13,17 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkeyforflashmessa
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = "login"
 login_manager.login_message_category = "warning"
 
 
 class User(UserMixin):
     def __init__(self, user_data):
-        self.id = user_data['user_id']
-        self.username = user_data['username']
-        self.full_name = user_data['full_name']
-        self.balance_cash = user_data['balance_cash']
-        self.role = user_data.get('role', 'user')
+        self.id = user_data["user_id"]
+        self.username = user_data["username"]
+        self.full_name = user_data["full_name"]
+        self.balance_cash = user_data["balance_cash"]
+        self.role = user_data.get("role", "user")
 
 
 @login_manager.user_loader
@@ -38,21 +38,21 @@ def load_user(user_id):
     return None
 
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for("index"))
 
-    if request.method == 'POST':
-        username = request.form['username']
-        full_name = request.form['full_name']
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form.get('confirm_password')
+    if request.method == "POST":
+        username = request.form["username"]
+        full_name = request.form["full_name"]
+        email = request.form["email"]
+        password = request.form["password"]
+        confirm_password = request.form.get("confirm_password")
 
         if password != confirm_password:
             flash("Passwords do not match.", "danger")
-            return redirect(url_for('register'))
+            return redirect(url_for("register"))
 
         existing_user = execute_query(
             "SELECT * FROM Users WHERE username = %s OR email = %s",
@@ -61,7 +61,7 @@ def register():
         )
         if existing_user:
             flash("Username or Email already exists.", "danger")
-            return redirect(url_for('register'))
+            return redirect(url_for("register"))
 
         new_user_id = f"U{uuid.uuid4().hex[:6].upper()}"
         hashed_pw = generate_password_hash(password)
@@ -71,42 +71,42 @@ def register():
         )
         if execute_query(sql, (new_user_id, username, full_name, email, hashed_pw)):
             flash("Registration successful!", "success")
-            return redirect(url_for('login'))
+            return redirect(url_for("login"))
 
-    return render_template('register.html')
+    return render_template("register.html")
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for("index"))
 
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
         user_data = execute_query(
             "SELECT * FROM Users WHERE username = %s",
             (username,),
             fetch_all=False
         )
-        if user_data and user_data.get('password_hash'):
-            if check_password_hash(user_data['password_hash'], password):
+        if user_data and user_data.get("password_hash"):
+            if check_password_hash(user_data["password_hash"], password):
                 user_obj = User(user_data)
                 login_user(user_obj)
                 flash(f"Welcome back, {user_data['full_name']}!", "success")
-                next_page = request.args.get('next')
-                return redirect(next_page if next_page else url_for('index'))
+                next_page = request.args.get("next")
+                return redirect(next_page if next_page else url_for("index"))
 
         flash("Invalid username or password.", "danger")
 
-    return render_template('login.html')
+    return render_template("login.html")
 
 
-@app.route('/logout')
+@app.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
 
 def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
@@ -128,11 +128,13 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
             continue
 
         props = {k: v for k, v in r.items() if k not in (lat_key, lon_key)}
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": props,
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": props,
+            }
+        )
 
     return {"type": "FeatureCollection", "features": features}
 
@@ -160,6 +162,7 @@ def api_parcels_geojson():
     if city:
         sql += " AND P.city = %s"
         params.append(city)
+
     rows = execute_query(sql, tuple(params), fetch_all=True)
     return jsonify(rows_to_geojson(rows))
 
@@ -211,29 +214,37 @@ def index():
         "SELECT user_id, username, balance_cash FROM Users ORDER BY balance_cash DESC LIMIT 5",
         fetch_all=True
     )
-    open_count = execute_query(
+    open_count_res = execute_query(
         "SELECT COUNT(*) as count FROM Options WHERE status = 'Open'",
         fetch_all=False
     )
+
+    stats_u = execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False)
+    stats_p = execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False)
+    stats_h = execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False)
+    stats_o = execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False)
+    stats_t = execute_query("SELECT COUNT(*) as count FROM Trades", fetch_all=False)
+
     stats = {
-        "users_count": execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False).get("count", 0),
-        "parcels_count": execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False).get("count", 0),
-        "price_history_count": execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False).get("count", 0),
-        "total_options_count": execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False).get("count", 0),
-        "trades_count": execute_query("SELECT COUNT(*) as count FROM Trades", fetch_all=False).get("count", 0)
+        "users_count": stats_u.get("count", 0) if stats_u else 0,
+        "parcels_count": stats_p.get("count", 0) if stats_p else 0,
+        "price_history_count": stats_h.get("count", 0) if stats_h else 0,
+        "total_options_count": stats_o.get("count", 0) if stats_o else 0,
+        "trades_count": stats_t.get("count", 0) if stats_t else 0,
     }
+
     return render_template(
         "dashboard.html",
-        users=users,
-        open_options_count=open_count.get("count", 0) if open_count else 0,
-        stats=stats
+        users=users or [],
+        open_options_count=open_count_res.get("count", 0) if open_count_res else 0,
+        stats=stats,
     )
 
 
 @app.route("/users")
 @login_required
 def list_users():
-    if current_user.role != 'admin':
+    if current_user.role != "admin":
         flash("Access Denied: Only Admins can view the full user list.", "danger")
         return redirect(url_for("index"))
 
@@ -267,14 +278,14 @@ def list_users():
         users=users,
         search_query=search_query,
         page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
 @app.route("/users/<user_id>")
 @login_required
 def view_user(user_id):
-    if current_user.role != 'admin' and current_user.id != user_id:
+    if current_user.role != "admin" and current_user.id != user_id:
         flash("Privacy Error: You can only view your own profile.", "danger")
         return redirect(url_for("index"))
 
@@ -302,7 +313,7 @@ def view_user(user_id):
 @app.route("/users/add", methods=["GET", "POST"])
 @login_required
 def add_user():
-    if current_user.role != 'admin':
+    if current_user.role != "admin":
         flash("Access Denied: You do not have permission to add users.", "danger")
         return redirect(url_for("index"))
 
@@ -331,7 +342,7 @@ def add_user():
 @app.route("/users/delete/<user_id>", methods=["POST"])
 @login_required
 def delete_user(user_id):
-    if current_user.role != 'admin':
+    if current_user.role != "admin":
         flash("Access Denied: Only Admins can delete users.", "danger")
         return redirect(url_for("index"))
 
@@ -400,13 +411,14 @@ def list_parcels():
         f"ORDER BY P.parcel_id ASC LIMIT %s OFFSET %s"
     )
     parcels = execute_query(sql, tuple(params) + (per_page, offset), fetch_all=True)
+
     return render_template(
         "parcels.html",
         parcels=parcels,
         status_filter=status_filter,
         search_query=search_query,
         page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
@@ -435,7 +447,7 @@ def view_parcel(parcel_id):
         "actual": [r["price_inr"] for r in history],
         "trend": [p["price"] for p in analytics["regression_line"]],
         "ma": [p["price"] for p in analytics["moving_average"]],
-        "forecast": analytics["forecasted_price"]
+        "forecast": analytics["forecasted_price"],
     }
     active_price = (
         parcel.get("listing_price_inr")
@@ -449,7 +461,7 @@ def view_parcel(parcel_id):
         current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"],
         forecasted_price=analytics["forecasted_price"],
         chart_data=chart_data,
-        active_price=active_price
+        active_price=active_price,
     )
 
 
@@ -461,13 +473,13 @@ def toggle_sale(parcel_id):
         (parcel_id,),
         fetch_all=False
     )
-    if not parcel or parcel['owner_user_id'] != current_user.id:
+    if not parcel or parcel["owner_user_id"] != current_user.id:
         flash("Unauthorized or parcel not found.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    current_status = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
+    current_status = True if parcel["is_for_sale"] in (1, "1", True, "True") else False
     new_status = not current_status
-    asking_price = request.form.get('asking_price')
+    asking_price = request.form.get("asking_price")
 
     if new_status:
         if not asking_price:
@@ -501,7 +513,7 @@ def buy_parcel(parcel_id):
         flash("Transaction failed: Parcel not found.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    is_for_sale = True if parcel['is_for_sale'] in (1, '1', True, 'True') else False
+    is_for_sale = True if parcel["is_for_sale"] in (1, "1", True, "True") else False
     if not is_for_sale or buyer_id == parcel["owner_user_id"]:
         flash("Transaction failed: Parcel not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
@@ -512,16 +524,16 @@ def buy_parcel(parcel_id):
     queries = [
         (
             "UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE, listing_price_inr = NULL WHERE parcel_id = %s AND is_for_sale = TRUE",
-            (buyer_id, parcel_id)
+            (buyer_id, parcel_id),
         ),
         (
             "UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s AND balance_cash >= %s",
-            (price, buyer_id, price)
+            (price, buyer_id, price),
         ),
         (
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
-            (price, seller_id)
-        )
+            (price, seller_id),
+        ),
     ]
     if execute_transaction(queries):
         flash(f"Parcel purchased for INR {float(price):,.0f}!", "success")
@@ -549,7 +561,9 @@ def list_options():
         where_clauses.append("O.status = %s")
         params.append(status_filter)
     if search_query:
-        where_clauses.append("(O.option_id LIKE %s OR P.city LIKE %s OR U_Seller.username LIKE %s OR U_Buyer.username LIKE %s)")
+        where_clauses.append(
+            "(O.option_id LIKE %s OR P.city LIKE %s OR U_Seller.username LIKE %s OR U_Buyer.username LIKE %s)"
+        )
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
 
@@ -568,13 +582,14 @@ def list_options():
 
     final_sql = base_sql + where_sql + " ORDER BY O.expiry_date ASC LIMIT %s OFFSET %s"
     options = execute_query(final_sql, tuple(params) + (per_page, offset), fetch_all=True)
+
     return render_template(
         "options.html",
         options=options,
         status_filter=status_filter,
         search_query=search_query,
         page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
@@ -597,20 +612,20 @@ def buy_option(option_id):
     queries = [
         (
             "UPDATE Options SET status = 'Traded', buyer_user_id = %s WHERE option_id = %s AND status = 'Open'",
-            (buyer_id, option_id)
+            (buyer_id, option_id),
         ),
         (
             "UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s AND balance_cash >= %s",
-            (premium, buyer_id, premium)
+            (premium, buyer_id, premium),
         ),
         (
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
-            (premium, seller_id)
+            (premium, seller_id),
         ),
         (
             "INSERT INTO Trades (trade_id, option_id, trade_date, trade_price_inr, quantity, buyer_user_id, seller_user_id) VALUES (%s, %s, CURDATE(), %s, 1, %s, %s)",
-            (trade_id, option_id, premium, buyer_id, seller_id)
-        )
+            (trade_id, option_id, premium, buyer_id, seller_id),
+        ),
     ]
     if execute_transaction(queries):
         flash(f"Option bought! Premium paid: {format_inr(premium)}", "success")
@@ -635,7 +650,9 @@ def list_trades():
     )
     params, where_clauses = [], []
     if search_query:
-        where_clauses.append("(T.trade_id LIKE %s OR O.option_id LIKE %s OR P.city LIKE %s OR U_Buyer.username LIKE %s OR U_Seller.username LIKE %s)")
+        where_clauses.append(
+            "(T.trade_id LIKE %s OR O.option_id LIKE %s OR P.city LIKE %s OR U_Buyer.username LIKE %s OR U_Seller.username LIKE %s)"
+        )
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
 
@@ -655,19 +672,20 @@ def list_trades():
 
     final_sql = base_sql + where_sql + " ORDER BY T.trade_date DESC LIMIT %s OFFSET %s"
     trades = execute_query(final_sql, tuple(params) + (per_page, offset), fetch_all=True)
+
     return render_template(
         "trades.html",
         trades=trades,
         search_query=search_query,
         page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
 @app.route("/settle_options", methods=["GET", "POST"])
 @login_required
 def settle_options():
-    if current_user.role != 'admin':
+    if current_user.role != "admin":
         flash("Access Denied: Only Admins can run settlement.", "danger")
         return redirect(url_for("index"))
 
@@ -698,28 +716,36 @@ def settle_options():
         if settlement_price > strike:
             payout = settlement_price - strike
             status_update = "Expired ITM"
-            single_option_queries.append((
-                "UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s",
-                (payout, option["seller_user_id"])
-            ))
-            single_option_queries.append((
-                "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
-                (payout, option["buyer_user_id"])
-            ))
+            single_option_queries.append(
+                (
+                    "UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s",
+                    (payout, option["seller_user_id"]),
+                )
+            )
+            single_option_queries.append(
+                (
+                    "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
+                    (payout, option["buyer_user_id"]),
+                )
+            )
 
-        single_option_queries.append((
-            "UPDATE Options SET status = %s WHERE option_id = %s",
-            (status_update, option["option_id"])
-        ))
+        single_option_queries.append(
+            (
+                "UPDATE Options SET status = %s WHERE option_id = %s",
+                (status_update, option["option_id"]),
+            )
+        )
         if execute_transaction(single_option_queries):
             success_count += 1
-            settlement_results.append({
-                "option_id": option["option_id"],
-                "settlement_price": settlement_price,
-                "strike": strike,
-                "payout": payout,
-                "result": status_update
-            })
+            settlement_results.append(
+                {
+                    "option_id": option["option_id"],
+                    "settlement_price": settlement_price,
+                    "strike": strike,
+                    "payout": payout,
+                    "result": status_update,
+                }
+            )
 
     if success_count > 0:
         flash(f"Settlement complete. {success_count} options processed.", "success")
@@ -728,10 +754,10 @@ def settle_options():
     return render_template("settlement.html", results=settlement_results)
 
 
-@app.route('/deposit', methods=['POST'])
+@app.route("/deposit", methods=["POST"])
 @login_required
 def deposit_funds():
-    amount = request.form.get('amount', type=float)
+    amount = request.form.get("amount", type=float)
     if amount and 0 < amount <= 1000000000:
         success = execute_query(
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
@@ -744,27 +770,28 @@ def deposit_funds():
             flash("Database error.", "danger")
     else:
         flash("Invalid amount.", "danger")
-    return redirect(url_for('view_user', user_id=current_user.id))
+    return redirect(url_for("view_user", user_id=current_user.id))
 
 
-@app.route('/change_password', methods=['POST'])
+@app.route("/change_password", methods=["POST"])
 @login_required
 def change_password():
-    current_password = request.form.get('current_password')
-    new_password = request.form.get('new_password')
-    confirm_new_password = request.form.get('confirm_new_password')
+    current_password = request.form.get("current_password")
+    new_password = request.form.get("new_password")
+    confirm_new_password = request.form.get("confirm_new_password")
+
     if new_password != confirm_new_password:
         flash("Passwords do not match.", "danger")
-        return redirect(url_for('view_user', user_id=current_user.id))
+        return redirect(url_for("view_user", user_id=current_user.id))
 
     user_data = execute_query(
         "SELECT password_hash FROM Users WHERE user_id = %s",
         (current_user.id,),
         fetch_all=False
     )
-    if not user_data or not check_password_hash(user_data['password_hash'], current_password):
+    if not user_data or not check_password_hash(user_data["password_hash"], current_password):
         flash("Incorrect password.", "danger")
-        return redirect(url_for('view_user', user_id=current_user.id))
+        return redirect(url_for("view_user", user_id=current_user.id))
 
     hashed_pw = generate_password_hash(new_password)
     success = execute_query(
@@ -775,12 +802,12 @@ def change_password():
         flash("Password updated.", "success")
     else:
         flash("Database error.", "danger")
-    return redirect(url_for('view_user', user_id=current_user.id))
+    return redirect(url_for("view_user", user_id=current_user.id))
 
 
 if __name__ == "__main__":
     app.run(
-        host='0.0.0.0',
+        host="0.0.0.0",
         port=5000,
-        debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+        debug=os.environ.get("FLASK_DEBUG", "False").lower() == "true"
     )
