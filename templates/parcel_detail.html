@@ -51,28 +51,33 @@
                     {% else %}
                         {% if parcel.is_for_sale %}
                             <form method="POST" action="{{ url_for('buy_parcel', parcel_id=parcel.parcel_id) }}">
-                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5" onclick="return confirm('Confirm purchase?');">
+                                <button type="submit" class="btn btn-danger w-100 py-2 fs-5 fw-bold" onclick="return confirm('Confirm purchase?');">
                                     Buy for {{ active_price | inr }}
                                 </button>
                             </form>
                         {% else %}
-                            <button type="button" class="btn btn-secondary w-100 py-2" disabled>Not Listed for Sale</button>
+                            <button type="button" class="btn btn-secondary w-100 py-2 fw-bold" disabled>Not Listed for Sale</button>
                         {% endif %}
                     {% endif %}
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100">Login to Purchase</a>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100 fw-bold">Login to Purchase</a>
                 {% endif %}
             </div>
         </div>
     </div>
     <div class="col-12 col-lg-7">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-dark text-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                 <span>Price History & Analytics</span>
             </div>
             <div class="card-body p-2 p-sm-4">
-                <div style="position: relative; height: 400px; width: 100%;">
-                    <canvas id="priceChart"></canvas>
+                <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;">
+                    <div style="min-width: 800px; height: 350px; position: relative;">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+                <div class="text-center mt-2 small text-muted d-lg-none">
+                    <i>↔ Swipe chart horizontally to view timeline</i>
                 </div>
                 <script type="application/json" id="chartDataJson">
                     {{ chart_data | tojson | safe }}
@@ -90,9 +95,6 @@
                         forecastPoints.push(chartData.actual[chartData.actual.length - 1]);
                         forecastPoints.push(chartData.forecast);
                         
-                        // Mobile check for responsive label limiting
-                        const isMobile = window.innerWidth < 768;
-
                         new Chart(ctx, {
                             type: 'line',
                             data: {
@@ -146,7 +148,7 @@
                                         labels: {
                                             usePointStyle: true,
                                             boxWidth: 8,
-                                            font: { size: isMobile ? 10 : 12 } // Smaller legend text on mobile
+                                            font: { size: 12 }
                                         }
                                     } 
                                 },
@@ -155,15 +157,13 @@
                                         ticks: {
                                             maxRotation: 45,
                                             minRotation: 45,
-                                            autoSkip: true,
-                                            maxTicksLimit: isMobile ? 6 : 15, // CRITICAL FIX: Stops labels from overlapping on phones
-                                            font: { size: isMobile ? 9 : 11 }
+                                            font: { size: 11 }
                                         }
                                     },
                                     y: { 
                                         ticks: { 
                                             callback: (val) => '₹' + val.toLocaleString(),
-                                            font: { size: isMobile ? 10 : 12 }
+                                            font: { size: 12 }
                                         } 
                                     }
                                 }
