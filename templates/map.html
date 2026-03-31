@@ -103,7 +103,8 @@
     const CURRENT_USER_ID = "{{ current_user_id }}";
 
     document.addEventListener('DOMContentLoaded', function () {
-        const map = L.map('map').setView([20.5937, 78.9629], 5);
+        // Locked map scroll zoom to prevent mobile scrolling issues
+        const map = L.map('map', { scrollWheelZoom: false, tap: false }).setView([20.5937, 78.9629], 5);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
         const layerGroupSale = L.markerClusterGroup();
@@ -112,7 +113,6 @@
         const layerGroupOptions = L.layerGroup();
         let heatLayer = null;
 
-        // FIX: Using the highly reliable Raw GitHub user content CDN to prevent 404 image blocking
         const iconBase = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
         const iconConf = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] };
         
@@ -155,14 +155,14 @@
                             layerGroupPortfolio.addLayer(marker);
                         } else if (isForSale) {
                             const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
-                            popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString()}</strong></div>`;
+                            popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString('en-IN')}</strong></div>`;
                             popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
                             marker.bindPopup(popupHtml);
                             layerGroupSale.addLayer(marker);
                         } else {
                             popupHtml += `<div class="mb-2 text-muted fw-bold">Not Listed for Sale</div>`;
-                            popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString()}</div>`;
+                            popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString('en-IN')}</div>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-secondary w-100">View Data</a>`;
                             marker.bindPopup(popupHtml);
                             layerGroupGeneral.addLayer(marker);
@@ -198,8 +198,8 @@
                         const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
                         const marker = L.marker(latlng, { icon: iconViolet });
                         let popupHtml = `<div class="text-center"><strong style="color: #6f42c1;">Option ${p.option_id}</strong><br/><small class="text-muted">Exp: ${p.expiry_date}</small></div><hr class="my-2"/>`;
-                        popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString()}</strong></div>`;
-                        popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString()}</strong></div>`;
+                        popupHtml += `<div class="d-flex justify-content-between mb-1"><span>Strike:</span> <strong>₹${Number(p.strike_inr).toLocaleString('en-IN')}</strong></div>`;
+                        popupHtml += `<div class="d-flex justify-content-between mb-3"><span>Premium:</span> <strong class="text-danger">₹${Number(p.premium_inr).toLocaleString('en-IN')}</strong></div>`;
                         popupHtml += `<form method="POST" action="/buy_option/${p.option_id}"><button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #6f42c1;">Trade Contract</button></form>`;
                         
                         marker.bindPopup(popupHtml);
