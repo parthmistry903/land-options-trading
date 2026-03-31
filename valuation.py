@@ -1,6 +1,5 @@
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-import numpy as np
 
 FORECAST_DAYS = 30
 MA_WINDOW = 6
