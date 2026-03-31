@@ -71,7 +71,7 @@
                 <span>Price History & Analytics</span>
             </div>
             <div class="card-body p-2 p-sm-4">
-                <div style="position: relative; height: 350px; width: 100%;">
+                <div style="position: relative; height: 400px; width: 100%;">
                     <canvas id="priceChart"></canvas>
                 </div>
                 <script type="application/json" id="chartDataJson">
@@ -89,6 +89,10 @@
                         const forecastPoints = new Array(chartData.actual.length - 1).fill(null);
                         forecastPoints.push(chartData.actual[chartData.actual.length - 1]);
                         forecastPoints.push(chartData.forecast);
+                        
+                        // Mobile check for responsive label limiting
+                        const isMobile = window.innerWidth < 768;
+
                         new Chart(ctx, {
                             type: 'line',
                             data: {
@@ -136,9 +140,32 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { position: 'bottom' } },
+                                plugins: { 
+                                    legend: { 
+                                        position: 'bottom',
+                                        labels: {
+                                            usePointStyle: true,
+                                            boxWidth: 8,
+                                            font: { size: isMobile ? 10 : 12 } // Smaller legend text on mobile
+                                        }
+                                    } 
+                                },
                                 scales: {
-                                    y: { ticks: { callback: (val) => '₹' + val.toLocaleString() } }
+                                    x: {
+                                        ticks: {
+                                            maxRotation: 45,
+                                            minRotation: 45,
+                                            autoSkip: true,
+                                            maxTicksLimit: isMobile ? 6 : 15, // CRITICAL FIX: Stops labels from overlapping on phones
+                                            font: { size: isMobile ? 9 : 11 }
+                                        }
+                                    },
+                                    y: { 
+                                        ticks: { 
+                                            callback: (val) => '₹' + val.toLocaleString(),
+                                            font: { size: isMobile ? 10 : 12 }
+                                        } 
+                                    }
                                 }
                             }
                         });
