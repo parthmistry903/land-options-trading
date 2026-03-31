@@ -18,19 +18,24 @@
                 <h5 class="card-title text-uppercase fw-bold opacity-75 mb-4">System Statistics ⚙️</h5>
                 <ul class="list-group list-group-flush bg-transparent mb-0 flex-grow-1">
                     <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
-                        <strong class="text-warning opacity-75">Users</strong> <span class="fs-5 fw-bold">{{ stats.users_count }}</span>
+                        <strong class="text-warning opacity-75">Users</strong>
+                        <span class="fs-5 fw-bold">{{ stats.users_count }}</span>
                     </li>
                     <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
-                        <strong class="text-warning opacity-75">Parcels</strong> <span class="fs-5 fw-bold">{{ stats.parcels_count }}</span>
+                        <strong class="text-warning opacity-75">Parcels</strong>
+                        <span class="fs-5 fw-bold">{{ stats.parcels_count }}</span>
                     </li>
                     <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
-                        <strong class="text-warning opacity-75">Options (Total)</strong> <span class="fs-5 fw-bold">{{ stats.total_options_count }}</span>
+                        <strong class="text-warning opacity-75">Options (Total)</strong>
+                        <span class="fs-5 fw-bold">{{ stats.total_options_count }}</span>
                     </li>
                     <li class="list-group-item bg-transparent text-white border-white border-opacity-25 d-flex justify-content-between align-items-center px-0">
-                        <strong class="text-warning opacity-75">Trades Executed</strong> <span class="fs-5 fw-bold">{{ stats.trades_count }}</span>
+                        <strong class="text-warning opacity-75">Trades Executed</strong>
+                        <span class="fs-5 fw-bold">{{ stats.trades_count }}</span>
                     </li>
                     <li class="list-group-item bg-transparent text-white border-0 d-flex justify-content-between align-items-center px-0 pb-0">
-                        <strong class="text-warning opacity-75">Price Records</strong> <span class="fs-5 fw-bold">{{ stats.price_history_count }}</span>
+                        <strong class="text-warning opacity-75">Price Records</strong>
+                        <span class="fs-5 fw-bold">{{ stats.price_history_count }}</span>
                     </li>
                 </ul>
             </div>
@@ -55,7 +60,14 @@
     </div>
 </div>
 <div class="mt-5 bg-light p-4 rounded shadow-sm border" data-bs-theme="light">
-    <h3 class="h5 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>End-of-Cycle Accounting</h3>
-    <p class="text-muted mb-0">To finalize options contracts and settle all obligations, navigate to the <a href="{{ url_for('settle_options') }}" class="fw-bold text-decoration-none">Settlement Engine</a>. This process automatically evaluates expiries and updates user cash balances.</p>
+    <h3 class="h5 fw-bold text-dark">
+        <i class="bi bi-clock-history me-2 text-primary"></i>
+        End-of-Cycle Accounting
+    </h3>
+    <p class="text-muted mb-0">
+        To finalize options contracts and settle all obligations, navigate to the
+        <a href="{{ url_for('settle_options') }}" class="fw-bold text-decoration-none">Settlement Engine</a>.
+        This process automatically evaluates expiries and updates user cash balances.
+    </p>
 </div>
 {% endblock %}
