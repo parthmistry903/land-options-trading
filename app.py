@@ -500,6 +500,43 @@ def toggle_sale(parcel_id):
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
 
+@app.route("/create_option/<parcel_id>", methods=["POST"])
+@login_required
+def create_option(parcel_id):
+    # 1. Security Check: Make sure only the real owner can make a contract
+    parcel = execute_query(
+        "SELECT owner_user_id FROM Parcels WHERE parcel_id = %s",
+        (parcel_id,),
+        fetch_all=False
+    )
+    if not parcel or parcel["owner_user_id"] != current_user.id:
+        flash("Security Error: You can only create contracts for land you own.", "danger")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+    # 2. Grab the math from the form
+    strike_price = request.form.get("strike_price")
+    premium = request.form.get("premium")
+    expiry_date = request.form.get("expiry_date")
+
+    if not strike_price or not premium or not expiry_date:
+        flash("You must fill out all contract details.", "warning")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+    # 3. Create a random Option ID and save it to the database
+    new_option_id = f"O{uuid.uuid4().hex[:6].upper()}"
+    sql = (
+        "INSERT INTO Options (option_id, parcel_id, seller_user_id, strike_inr, premium_inr, expiry_date, status) "
+        "VALUES (%s, %s, %s, %s, %s, %s, 'Open')"
+    )
+    
+    if execute_query(sql, (new_option_id, parcel_id, current_user.id, strike_price, premium, expiry_date)):
+        flash("Success! Your Options Contract is now live on the market.", "success")
+    else:
+        flash("Database Error: Could not create the contract.", "danger")
+
+    return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+
 @app.route("/buy_parcel/<parcel_id>", methods=["POST"])
 @login_required
 def buy_parcel(parcel_id):
@@ -521,7 +558,6 @@ def buy_parcel(parcel_id):
     price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"]
     seller_id = parcel["owner_user_id"]
 
-    # THE BUG FIX: The 4th query adds the sale price to the History table so the chart updates!
     queries = [
         (
             "UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE, listing_price_inr = NULL WHERE parcel_id = %s AND is_for_sale = TRUE",
