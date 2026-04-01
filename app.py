@@ -521,6 +521,7 @@ def buy_parcel(parcel_id):
     price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"]
     seller_id = parcel["owner_user_id"]
 
+    # THE BUG FIX: The 4th query adds the sale price to the History table so the chart updates!
     queries = [
         (
             "UPDATE Parcels SET owner_user_id = %s, is_for_sale = FALSE, listing_price_inr = NULL WHERE parcel_id = %s AND is_for_sale = TRUE",
@@ -534,7 +535,12 @@ def buy_parcel(parcel_id):
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
             (price, seller_id),
         ),
+        (
+            "INSERT INTO Price_History (parcel_id, record_date, price_inr) VALUES (%s, CURDATE(), %s)",
+            (parcel_id, price)
+        ),
     ]
+    
     if execute_transaction(queries):
         flash(f"Parcel purchased for INR {float(price):,.0f}!", "success")
     else:
