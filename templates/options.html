@@ -30,20 +30,21 @@
                 <th>Seller</th>
                 <th>Buyer</th>
                 <th>Status</th>
+                <th>Action</th>
             </tr>
         </thead>
         <tbody>
             {% for option in options %}
-            <tr>
+            <tr data-expiry="{{ option.expiry_date }}" data-status="{{ option.status }}">
                 <td class="align-middle">{{ option.option_id }}</td>
                 <td class="align-middle">
                     <a href="{{ url_for('view_parcel', parcel_id=option.parcel_id) }}">
                         {{ option.address }}, <strong>{{ option.city }}</strong>
                     </a>
                 </td>
-                <td class="align-middle">{{ option.strike_inr | inr }}</td>
-                <td class="align-middle"><strong>{{ option.premium_inr | inr }}</strong></td>
-                <td class="align-middle">{{ option.expiry_date | date }}</td>
+                <td class="align-middle text-primary fw-bold">{{ option.strike_inr | inr }}</td>
+                <td class="align-middle"><strong class="text-danger">{{ option.premium_inr | inr }}</strong></td>
+                <td class="align-middle fw-bold">{{ option.expiry_date | date }}</td>
                 <td class="align-middle">
                     <a href="{{ url_for('view_user', user_id=option.seller_user_id) }}">{{ option.seller_name }}</a>
                 </td>
@@ -51,11 +52,22 @@
                     {% if option.buyer_name %}
                     <a href="{{ url_for('view_user', user_id=option.buyer_user_id) }}">{{ option.buyer_name }}</a>
                     {% else %}
-                    N/A
+                    <span class="text-muted">N/A</span>
                     {% endif %}
                 </td>
                 <td class="align-middle">
-                    <span class="badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning text-dark{% else %}secondary{% endif %}">{{ option.status }}</span>
+                    <span class="badge status-badge bg-{% if option.status == 'Open' %}success{% elif option.status == 'Traded' %}warning text-dark{% else %}secondary{% endif %}">
+                        {{ option.status }}
+                    </span>
+                </td>
+                <td class="align-middle">
+                    {% if option.status == 'Open' and current_user.id != option.seller_user_id %}
+                        <form method="POST" action="{{ url_for('buy_option', option_id=option.option_id) }}">
+                            <button type="submit" class="btn btn-sm btn-purple fw-bold trade-btn" style="background-color: #6f42c1; color: #fff;">Buy</button>
+                        </form>
+                    {% else %}
+                        <button class="btn btn-sm btn-secondary" disabled><i class="bi bi-lock"></i></button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -85,4 +97,31 @@
         </li>
     </ul>
 </nav>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const today = new Date().toISOString().split('T')[0];
+        
+        document.querySelectorAll('tr[data-expiry]').forEach(row => {
+            const expiry = row.getAttribute('data-expiry');
+            const status = row.getAttribute('data-status');
+            
+            // If it is 'Open' but the date has passed, it's a dead zombie contract.
+            if (status === 'Open' && expiry < today) {
+                const badge = row.querySelector('.status-badge');
+                const btn = row.querySelector('.trade-btn');
+                
+                badge.textContent = 'Expired (Unsold)';
+                badge.className = 'badge status-badge bg-danger';
+                row.classList.add('opacity-50'); // Dim the row
+                
+                if (btn) {
+                    btn.disabled = true;
+                    btn.className = 'btn btn-sm btn-secondary';
+                    btn.textContent = 'Locked';
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}
