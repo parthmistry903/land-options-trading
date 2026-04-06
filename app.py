@@ -38,6 +38,15 @@ def load_user(user_id):
     return None
 
 
+# ANTI-COLLISION ID GENERATOR
+def generate_unique_id(prefix, table, column_name):
+    while True:
+        new_id = f"{prefix}{uuid.uuid4().hex[:8].upper()}"
+        check = execute_query(f"SELECT 1 FROM {table} WHERE {column_name} = %s", (new_id,), fetch_all=False)
+        if not check:
+            return new_id
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
@@ -63,7 +72,7 @@ def register():
             flash("Username or Email already exists.", "danger")
             return redirect(url_for("register"))
 
-        new_user_id = f"U{uuid.uuid4().hex[:6].upper()}"
+        new_user_id = generate_unique_id("U", "Users", "user_id")
         hashed_pw = generate_password_hash(password)
         sql = (
             "INSERT INTO Users (user_id, username, full_name, email, registration_date, balance_cash, password_hash, role) "
@@ -155,8 +164,11 @@ def map_page():
 def api_parcels_geojson():
     city = request.args.get("city")
     params = []
+    # LIVE PRICING FIX: Fetches the absolute latest price point to feed the map popups
     sql = (
-        "SELECT P.*, U.username as owner_name FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id "
+        "SELECT P.*, U.username as owner_name, "
+        "(SELECT price_inr FROM Price_History PH WHERE PH.parcel_id = P.parcel_id ORDER BY record_date DESC LIMIT 1) as current_price "
+        "FROM Parcels P LEFT JOIN Users U ON P.owner_user_id = U.user_id "
         "WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
     )
     if city:
@@ -184,9 +196,12 @@ def api_options_geojson():
 @app.route("/api/heat_by_city")
 @login_required
 def api_heat_by_city():
+    # LIVE PRICING FIX: Heatmap now uses the dynamic trading price to calculate city value!
     sql = (
-        "SELECT city, AVG(base_price_inr) as avg_price, COUNT(*) as count, MAX(latitude) as lat, MAX(longitude) as lon "
-        "FROM Parcels WHERE latitude IS NOT NULL AND longitude IS NOT NULL GROUP BY city"
+        "SELECT P.city, "
+        "AVG(COALESCE((SELECT price_inr FROM Price_History PH WHERE PH.parcel_id = P.parcel_id ORDER BY record_date DESC LIMIT 1), P.base_price_inr)) as avg_price, "
+        "COUNT(*) as count, MAX(P.latitude) as lat, MAX(P.longitude) as lon "
+        "FROM Parcels P WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL GROUP BY P.city"
     )
     rows = execute_query(sql, fetch_all=True)
     if not rows:
@@ -479,12 +494,15 @@ def toggle_sale(parcel_id):
 
     current_status = True if parcel["is_for_sale"] in (1, "1", True, "True") else False
     new_status = not current_status
-    asking_price = request.form.get("asking_price")
 
     if new_status:
-        if not asking_price:
-            flash("You must set an asking price to list the property.", "warning")
+        try:
+            asking_price = float(request.form.get("asking_price"))
+            if asking_price <= 0: raise ValueError
+        except (ValueError, TypeError):
+            flash("Asking price must be a valid positive number.", "danger")
             return redirect(url_for("view_parcel", parcel_id=parcel_id))
+            
         execute_query(
             "UPDATE Parcels SET is_for_sale = %s, listing_price_inr = %s WHERE parcel_id = %s",
             (new_status, asking_price, parcel_id)
@@ -503,7 +521,6 @@ def toggle_sale(parcel_id):
 @app.route("/create_option/<parcel_id>", methods=["POST"])
 @login_required
 def create_option(parcel_id):
-    # 1. Security Check: Make sure only the real owner can make a contract
     parcel = execute_query(
         "SELECT owner_user_id FROM Parcels WHERE parcel_id = %s",
         (parcel_id,),
@@ -513,27 +530,45 @@ def create_option(parcel_id):
         flash("Security Error: You can only create contracts for land you own.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    # 2. Grab the math from the form
-    strike_price = request.form.get("strike_price")
-    premium = request.form.get("premium")
-    expiry_date = request.form.get("expiry_date")
-
-    if not strike_price or not premium or not expiry_date:
-        flash("You must fill out all contract details.", "warning")
+    # NEGATIVE NUMBER FIX
+    try:
+        strike_price = float(request.form.get("strike_price"))
+        premium = float(request.form.get("premium"))
+        expiry_date = request.form.get("expiry_date")
+        if strike_price <= 0 or premium <= 0: raise ValueError
+    except (ValueError, TypeError):
+        flash("Strike and Premium must be valid positive numbers.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    # 3. Create a random Option ID and save it to the database
-    new_option_id = f"O{uuid.uuid4().hex[:6].upper()}"
+    # CONTRACT SPAM FIX: Max 1 open contract per parcel
+    spam_check = execute_query("SELECT COUNT(*) as c FROM Options WHERE parcel_id = %s AND status = 'Open'", (parcel_id,), fetch_all=False)
+    if spam_check and spam_check['c'] > 0:
+        flash("You already have an active contract for this property. Cancel it to create a new one.", "warning")
+        return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+    new_option_id = generate_unique_id("O", "Options", "option_id")
     sql = (
         "INSERT INTO Options (option_id, parcel_id, seller_user_id, strike_inr, premium_inr, expiry_date, status) "
         "VALUES (%s, %s, %s, %s, %s, %s, 'Open')"
     )
-    
     if execute_query(sql, (new_option_id, parcel_id, current_user.id, strike_price, premium, expiry_date)):
         flash("Success! Your Options Contract is now live on the market.", "success")
     else:
         flash("Database Error: Could not create the contract.", "danger")
 
+    return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+
+# MISSING CANCELLATION FIX
+@app.route("/cancel_parcel_options/<parcel_id>", methods=["POST"])
+@login_required
+def cancel_parcel_options(parcel_id):
+    success = execute_query(
+        "UPDATE Options SET status = 'Cancelled by Owner' WHERE parcel_id = %s AND seller_user_id = %s AND status = 'Open'", 
+        (parcel_id, current_user.id)
+    )
+    if success:
+        flash("Your open contracts for this parcel have been successfully cancelled.", "info")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
 
@@ -575,6 +610,11 @@ def buy_parcel(parcel_id):
             "INSERT INTO Price_History (parcel_id, record_date, price_inr) VALUES (%s, CURDATE(), %s)",
             (parcel_id, price)
         ),
+        # NAKED OPTIONS FIX: Automatically kills contracts tied to land that was just sold
+        (
+            "UPDATE Options SET status = 'Cancelled (Asset Sold)' WHERE parcel_id = %s AND status = 'Open'",
+            (parcel_id,)
+        )
     ]
     
     if execute_transaction(queries):
@@ -650,7 +690,7 @@ def buy_option(option_id):
 
     premium = option["premium_inr"]
     seller_id = option["seller_user_id"]
-    trade_id = f"T{uuid.uuid4().hex[:10].upper()}"
+    trade_id = generate_unique_id("T", "Trades", "trade_id")
     queries = [
         (
             "UPDATE Options SET status = 'Traded', buyer_user_id = %s WHERE option_id = %s AND status = 'Open'",
@@ -683,36 +723,42 @@ def list_trades():
     page = max(1, request.args.get("page", 1, type=int))
     per_page = 50
 
-    base_sql = (
-        "SELECT T.*, O.option_id, P.address, P.city, U_Buyer.username as buyer_name, U_Seller.username as seller_name "
-        "FROM Trades T JOIN Options O ON T.option_id = O.option_id "
-        "JOIN Parcels P ON O.parcel_id = P.parcel_id "
-        "JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id "
-        "JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id"
-    )
+    # TRADE HISTORY FIX: UNION ALL combines physical land sales and option contracts into one master timeline
+    base_sql = """
+    SELECT * FROM (
+        SELECT T.trade_id, T.trade_date, O.option_id, P.address, P.city, T.trade_price_inr, 
+               U_Buyer.username as buyer_name, U_Seller.username as seller_name 
+        FROM Trades T 
+        JOIN Options O ON T.option_id = O.option_id 
+        JOIN Parcels P ON O.parcel_id = P.parcel_id 
+        JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id 
+        JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id
+        UNION ALL
+        SELECT CONCAT('LND-', PH.parcel_id, '-', DATE_FORMAT(PH.record_date, '%Y%m%d')), PH.record_date, PH.parcel_id, 
+               P.address, P.city, PH.price_inr, 'Market Purchase', 'Market Sale' 
+        FROM Price_History PH 
+        JOIN Parcels P ON PH.parcel_id = P.parcel_id
+    ) AS MasterTrades
+    """
+    
     params, where_clauses = [], []
     if search_query:
         where_clauses.append(
-            "(T.trade_id LIKE %s OR O.option_id LIKE %s OR P.city LIKE %s OR U_Buyer.username LIKE %s OR U_Seller.username LIKE %s)"
+            "(trade_id LIKE %s OR option_id LIKE %s OR city LIKE %s OR buyer_name LIKE %s OR seller_name LIKE %s)"
         )
         search_pattern = f"%{search_query}%"
         params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
 
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-    count_sql = (
-        "SELECT COUNT(*) as total FROM Trades T JOIN Options O ON T.option_id = O.option_id "
-        "JOIN Parcels P ON O.parcel_id = P.parcel_id "
-        "JOIN Users U_Buyer ON T.buyer_user_id = U_Buyer.user_id "
-        "JOIN Users U_Seller ON T.seller_user_id = U_Seller.user_id" + where_sql
-    )
+    count_sql = "SELECT COUNT(*) as total FROM (" + base_sql + where_sql + ") AS CountQuery"
     total_records_result = execute_query(count_sql, tuple(params), fetch_all=False)
     total = total_records_result["total"] if total_records_result else 0
     total_pages = max(1, (total + per_page - 1) // per_page)
     page = min(page, total_pages)
     offset = (page - 1) * per_page
 
-    final_sql = base_sql + where_sql + " ORDER BY T.trade_date DESC LIMIT %s OFFSET %s"
+    final_sql = base_sql + where_sql + " ORDER BY trade_date DESC LIMIT %s OFFSET %s"
     trades = execute_query(final_sql, tuple(params) + (per_page, offset), fetch_all=True)
 
     return render_template(
@@ -731,6 +777,9 @@ def settle_options():
         flash("Access Denied: Only Admins can run settlement.", "danger")
         return redirect(url_for("index"))
 
+    # ZOMBIE KILLER FIX: Before settling active trades, permanently kill any un-purchased expired contracts
+    execute_query("UPDATE Options SET status = 'Expired (Unsold)' WHERE status = 'Open' AND expiry_date < CURDATE()")
+
     expired_options = execute_query(
         "SELECT O.option_id, O.parcel_id, O.strike_inr, O.buyer_user_id, O.seller_user_id, P.base_price_inr "
         "FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id "
@@ -744,12 +793,17 @@ def settle_options():
         return render_template("settlement.html", results=settlement_results)
 
     for option in expired_options:
-        latest_price_record = execute_query(
-            "SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 1",
+        # WASH TRADING FIX: Uses moving average of last 3 sales instead of 1 random spike
+        history_data = execute_query(
+            "SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 3",
             (option["parcel_id"],),
-            fetch_all=False
+            fetch_all=True
         )
-        settlement_price = latest_price_record["price_inr"] if latest_price_record else option["base_price_inr"]
+        if history_data:
+            settlement_price = sum(h["price_inr"] for h in history_data) / len(history_data)
+        else:
+            settlement_price = option["base_price_inr"]
+            
         strike = option["strike_inr"]
         payout = 0
         status_update = "Expired OTM"
@@ -758,9 +812,10 @@ def settle_options():
         if settlement_price > strike:
             payout = settlement_price - strike
             status_update = "Expired ITM"
+            # INFINITE DEBT FIX: Uses GREATEST(0) so seller balance stops at 0 and doesn't go negative
             single_option_queries.append(
                 (
-                    "UPDATE Users SET balance_cash = balance_cash - %s WHERE user_id = %s",
+                    "UPDATE Users SET balance_cash = GREATEST(0, balance_cash - %s) WHERE user_id = %s",
                     (payout, option["seller_user_id"]),
                 )
             )
@@ -799,19 +854,28 @@ def settle_options():
 @app.route("/deposit", methods=["POST"])
 @login_required
 def deposit_funds():
-    amount = request.form.get("amount", type=float)
-    if amount and 0 < amount <= 1000000000:
-        success = execute_query(
-            "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
-            (amount, current_user.id)
-        )
-        if success:
-            flash(f"Deposited INR {amount:,.2f}.", "success")
-            current_user.balance_cash += amount
+    try:
+        amount = float(request.form.get("amount", 0))
+    except (ValueError, TypeError):
+        amount = 0
+
+    # INFINITE DEPOSIT FIX: Limits max transaction and limits total user wallet size
+    if 0 < amount <= 10000000:
+        if current_user.balance_cash + amount > 10000000000:
+            flash("Deposit failed: Your wallet has reached the maximum permitted limit of 10 Billion INR.", "danger")
         else:
-            flash("Database error.", "danger")
+            success = execute_query(
+                "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
+                (amount, current_user.id)
+            )
+            if success:
+                flash(f"Deposited INR {amount:,.2f}.", "success")
+                current_user.balance_cash += amount
+            else:
+                flash("Database error.", "danger")
     else:
-        flash("Invalid amount.", "danger")
+        flash("Invalid amount. Deposits must be between ₹1 and ₹10,000,000.", "danger")
+        
     return redirect(url_for("view_user", user_id=current_user.id))
 
 
