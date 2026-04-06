@@ -89,7 +89,7 @@
 
             <div class="form-check form-switch mb-4 mt-2">
                 <input class="form-check-input" type="checkbox" role="switch" id="toggle-heat" checked>
-                <label class="form-check-label fw-bold" for="toggle-heat">Price Momentum Heatmap</label>
+                <label class="form-check-label fw-bold" for="toggle-heat">Live Price Heatmap</label>
             </div>
 
             <div class="legend mt-auto" id="map-legend">
@@ -107,7 +107,7 @@
                     <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #6c757d; margin-right: 8px;"></span> Not For Sale
                 </div>
                 <div class="d-flex align-items-center mb-1 small text-muted">
-                    <span style="display: inline-block; width: 15px; height: 5px; background-color: #dc3545; margin-right: 8px;"></span> High Momentum Area
+                    <span style="display: inline-block; width: 15px; height: 5px; background-color: #dc3545; margin-right: 8px;"></span> High Value Area
                 </div>
             </div>
         </div>
@@ -166,21 +166,23 @@
 
                         let popupHtml = `<div class="text-center"><strong>${p.address || `Parcel ${p.parcel_id}`}</strong><br/><small class="text-muted">${p.city}</small></div><hr class="my-2"/>`;
 
+                        // FIX: Look for live current_price, fallback to listing/base
+                        const livePrice = p.current_price || p.listing_price_inr || p.base_price_inr;
+
                         if (isOwner) {
                             popupHtml += `<div class="mb-2 text-primary fw-bold">Your Property</div>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-primary w-100">Manage Asset</a>`;
                             marker.bindPopup(popupHtml);
                             layerGroupPortfolio.addLayer(marker);
                         } else if (isForSale) {
-                            const priceDisp = p.listing_price_inr ? p.listing_price_inr : p.base_price_inr;
-                            popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(priceDisp).toLocaleString('en-IN')}</strong></div>`;
+                            popupHtml += `<div class="mb-2">Asking: <strong class="text-success fs-6">₹${Number(livePrice).toLocaleString('en-IN')}</strong></div>`;
                             popupHtml += `<form method="POST" action="/buy_parcel/${p.parcel_id}"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Buy Property</button></form>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="d-block text-center mt-2 small text-decoration-none">View Details</a>`;
                             marker.bindPopup(popupHtml);
                             layerGroupSale.addLayer(marker);
                         } else {
                             popupHtml += `<div class="mb-2 text-muted fw-bold">Not Listed for Sale</div>`;
-                            popupHtml += `<div class="mb-2 small">Est. Value: ₹${Number(p.base_price_inr).toLocaleString('en-IN')}</div>`;
+                            popupHtml += `<div class="mb-2 small">Live Est. Value: ₹${Number(livePrice).toLocaleString('en-IN')}</div>`;
                             popupHtml += `<a href="/parcels/${p.parcel_id}" class="btn btn-sm btn-outline-secondary w-100">View Data</a>`;
                             marker.bindPopup(popupHtml);
                             layerGroupGeneral.addLayer(marker);
@@ -211,9 +213,12 @@
                 layerGroupOptions.clearLayers();
 
                 if (geojson.features) {
+                    const today = new Date().toISOString().split('T')[0];
+                    
                     geojson.features.forEach(feature => {
                         const p = feature.properties;
-                        if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID) return;
+                        // Hide options if they are owned by the user, not open, OR EXPIRED
+                        if (p.status !== 'Open' || p.seller_user_id === CURRENT_USER_ID || p.expiry_date < today) return;
 
                         const latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
                         const marker = L.marker(latlng, { icon: iconViolet });
