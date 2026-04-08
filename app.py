@@ -182,12 +182,14 @@ def api_parcels_geojson():
 @app.route("/api/options_geojson")
 @login_required
 def api_options_geojson():
+    # MAP LAG FIX: Only fetches open, future contracts to save bandwidth
     sql = (
         "SELECT O.*, P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name "
         "FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id "
         "LEFT JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id "
         "LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id "
-        "WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL"
+        "WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL "
+        "AND O.status = 'Open' AND O.expiry_date >= CURDATE()"
     )
     rows = execute_query(sql, fetch_all=True)
     return jsonify(rows_to_geojson(rows))
@@ -196,7 +198,7 @@ def api_options_geojson():
 @app.route("/api/heat_by_city")
 @login_required
 def api_heat_by_city():
-    # LIVE PRICING FIX: Heatmap now uses the dynamic trading price to calculate city value!
+    # LIVE PRICING FIX: Heatmap now uses the dynamic trading price to calculate city value
     sql = (
         "SELECT P.city, "
         "AVG(COALESCE((SELECT price_inr FROM Price_History PH WHERE PH.parcel_id = P.parcel_id ORDER BY record_date DESC LIMIT 1), P.base_price_inr)) as avg_price, "
@@ -234,11 +236,12 @@ def index():
         fetch_all=False
     )
 
+    # DASHBOARD MATH FIX: Combines counts of both tables to accurately reflect the unified Trade History page
     stats_u = execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False)
     stats_p = execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False)
     stats_h = execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False)
     stats_o = execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False)
-    stats_t = execute_query("SELECT COUNT(*) as count FROM Trades", fetch_all=False)
+    stats_t = execute_query("SELECT (SELECT COUNT(*) FROM Trades) + (SELECT COUNT(*) FROM Price_History) as count", fetch_all=False)
 
     stats = {
         "users_count": stats_u.get("count", 0) if stats_u else 0,
@@ -530,14 +533,22 @@ def create_option(parcel_id):
         flash("Security Error: You can only create contracts for land you own.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    # NEGATIVE NUMBER FIX
+    # NEGATIVE NUMBER AND TIME-TRAVEL DATE FIX
     try:
         strike_price = float(request.form.get("strike_price"))
         premium = float(request.form.get("premium"))
-        expiry_date = request.form.get("expiry_date")
+        expiry_date_str = request.form.get("expiry_date")
+        
         if strike_price <= 0 or premium <= 0: raise ValueError
-    except (ValueError, TypeError):
-        flash("Strike and Premium must be valid positive numbers.", "danger")
+
+        # Enforce that the expiration date must be in the future to stop immediate zombie creation
+        parsed_date = datetime.strptime(expiry_date_str, "%Y-%m-%d").date()
+        if parsed_date <= date.today():
+            flash("Expiration date must be set to a future date.", "danger")
+            return redirect(url_for("view_parcel", parcel_id=parcel_id))
+
+    except (ValueError, TypeError, Exception):
+        flash("Strike, Premium, and Date must be valid values.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
     # CONTRACT SPAM FIX: Max 1 open contract per parcel
@@ -551,7 +562,7 @@ def create_option(parcel_id):
         "INSERT INTO Options (option_id, parcel_id, seller_user_id, strike_inr, premium_inr, expiry_date, status) "
         "VALUES (%s, %s, %s, %s, %s, %s, 'Open')"
     )
-    if execute_query(sql, (new_option_id, parcel_id, current_user.id, strike_price, premium, expiry_date)):
+    if execute_query(sql, (new_option_id, parcel_id, current_user.id, strike_price, premium, expiry_date_str)):
         flash("Success! Your Options Contract is now live on the market.", "success")
     else:
         flash("Database Error: Could not create the contract.", "danger")
@@ -606,8 +617,10 @@ def buy_parcel(parcel_id):
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
             (price, seller_id),
         ),
+        # DOUBLE SALE CRASH FIX: Prevents DB crash if property is bought twice in one day
         (
-            "INSERT INTO Price_History (parcel_id, record_date, price_inr) VALUES (%s, CURDATE(), %s)",
+            "INSERT INTO Price_History (parcel_id, record_date, price_inr) VALUES (%s, CURDATE(), %s) "
+            "ON DUPLICATE KEY UPDATE price_inr = VALUES(price_inr)",
             (parcel_id, price)
         ),
         # NAKED OPTIONS FIX: Automatically kills contracts tied to land that was just sold
@@ -644,10 +657,10 @@ def list_options():
         params.append(status_filter)
     if search_query:
         where_clauses.append(
-            "(O.option_id LIKE %s OR P.city LIKE %s OR U_Seller.username LIKE %s OR U_Buyer.username LIKE %s)"
+            "(O.option_id LIKE %s OR P.parcel_id LIKE %s OR P.city LIKE %s OR U_Seller.username LIKE %s OR U_Buyer.username LIKE %s)"
         )
         search_pattern = f"%{search_query}%"
-        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
 
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
