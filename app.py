@@ -16,7 +16,6 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 login_manager.login_message_category = "warning"
 
-
 class User(UserMixin):
     def __init__(self, user_data):
         self.id = user_data["user_id"]
@@ -24,7 +23,6 @@ class User(UserMixin):
         self.full_name = user_data["full_name"]
         self.balance_cash = user_data["balance_cash"]
         self.role = user_data.get("role", "user")
-
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -37,15 +35,12 @@ def load_user(user_id):
         return User(user_data)
     return None
 
-
-# ANTI-COLLISION ID GENERATOR
 def generate_unique_id(prefix, table, column_name):
     while True:
         new_id = f"{prefix}{uuid.uuid4().hex[:8].upper()}"
         check = execute_query(f"SELECT 1 FROM {table} WHERE {column_name} = %s", (new_id,), fetch_all=False)
         if not check:
             return new_id
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -84,7 +79,6 @@ def register():
 
     return render_template("register.html")
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -110,13 +104,11 @@ def login():
 
     return render_template("login.html")
 
-
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
-
 
 def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
     features = []
@@ -147,7 +139,6 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
 
     return {"type": "FeatureCollection", "features": features}
 
-
 @app.route("/map")
 @login_required
 def map_page():
@@ -158,13 +149,11 @@ def map_page():
     cities = [c["city"] for c in cities_data] if cities_data else []
     return render_template("map.html", cities=cities, current_user_id=current_user.id)
 
-
 @app.route("/api/parcels_geojson")
 @login_required
 def api_parcels_geojson():
     city = request.args.get("city")
     params = []
-    # LIVE PRICING FIX: Fetches the absolute latest price point to feed the map popups
     sql = (
         "SELECT P.*, U.username as owner_name, "
         "(SELECT price_inr FROM Price_History PH WHERE PH.parcel_id = P.parcel_id ORDER BY record_date DESC LIMIT 1) as current_price "
@@ -178,11 +167,9 @@ def api_parcels_geojson():
     rows = execute_query(sql, tuple(params), fetch_all=True)
     return jsonify(rows_to_geojson(rows))
 
-
 @app.route("/api/options_geojson")
 @login_required
 def api_options_geojson():
-    # MAP LAG FIX: Only fetches open, future contracts to save bandwidth
     sql = (
         "SELECT O.*, P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name "
         "FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id "
@@ -194,11 +181,9 @@ def api_options_geojson():
     rows = execute_query(sql, fetch_all=True)
     return jsonify(rows_to_geojson(rows))
 
-
 @app.route("/api/heat_by_city")
 @login_required
 def api_heat_by_city():
-    # LIVE PRICING FIX: Heatmap now uses the dynamic trading price to calculate city value
     sql = (
         "SELECT P.city, "
         "AVG(COALESCE((SELECT price_inr FROM Price_History PH WHERE PH.parcel_id = P.parcel_id ORDER BY record_date DESC LIMIT 1), P.base_price_inr)) as avg_price, "
@@ -210,7 +195,6 @@ def api_heat_by_city():
         return jsonify([])
     return jsonify(rows)
 
-
 def format_inr(amount):
     if amount is None or amount == "":
         return "N/A"
@@ -219,10 +203,8 @@ def format_inr(amount):
     except ValueError:
         return "N/A"
 
-
 app.jinja_env.filters["inr"] = format_inr
 app.jinja_env.filters["date"] = lambda d: d.strftime("%Y-%m-%d") if isinstance(d, (datetime, date)) else d
-
 
 @app.route("/")
 @login_required
@@ -236,7 +218,6 @@ def index():
         fetch_all=False
     )
 
-    # DASHBOARD MATH FIX: Combines counts of both tables to accurately reflect the unified Trade History page
     stats_u = execute_query("SELECT COUNT(*) as count FROM Users", fetch_all=False)
     stats_p = execute_query("SELECT COUNT(*) as count FROM Parcels", fetch_all=False)
     stats_h = execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False)
@@ -257,7 +238,6 @@ def index():
         open_options_count=open_count_res.get("count", 0) if open_count_res else 0,
         stats=stats,
     )
-
 
 @app.route("/users")
 @login_required
@@ -299,7 +279,6 @@ def list_users():
         total_pages=total_pages,
     )
 
-
 @app.route("/users/<user_id>")
 @login_required
 def view_user(user_id):
@@ -326,7 +305,6 @@ def view_user(user_id):
         fetch_all=True
     )
     return render_template("user_profile.html", user=user, parcels=parcels, trades=trades)
-
 
 @app.route("/users/add", methods=["GET", "POST"])
 @login_required
@@ -355,7 +333,6 @@ def add_user():
             flash("Error adding user. User ID or Username/Email might already exist.", "danger")
 
     return render_template("add_user.html")
-
 
 @app.route("/users/delete/<user_id>", methods=["POST"])
 @login_required
@@ -394,7 +371,6 @@ def delete_user(user_id):
     else:
         flash(f"Error deleting User ID {user_id}.", "danger")
     return redirect(url_for("list_users"))
-
 
 @app.route("/parcels")
 @login_required
@@ -439,7 +415,6 @@ def list_parcels():
         total_pages=total_pages,
     )
 
-
 @app.route("/parcels/<parcel_id>")
 @login_required
 def view_parcel(parcel_id):
@@ -482,7 +457,6 @@ def view_parcel(parcel_id):
         active_price=active_price,
     )
 
-
 @app.route("/toggle_sale/<parcel_id>", methods=["POST"])
 @login_required
 def toggle_sale(parcel_id):
@@ -520,7 +494,6 @@ def toggle_sale(parcel_id):
 
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-
 @app.route("/create_option/<parcel_id>", methods=["POST"])
 @login_required
 def create_option(parcel_id):
@@ -533,7 +506,6 @@ def create_option(parcel_id):
         flash("Security Error: You can only create contracts for land you own.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    # NEGATIVE NUMBER AND TIME-TRAVEL DATE FIX
     try:
         strike_price = float(request.form.get("strike_price"))
         premium = float(request.form.get("premium"))
@@ -541,7 +513,6 @@ def create_option(parcel_id):
         
         if strike_price <= 0 or premium <= 0: raise ValueError
 
-        # Enforce that the expiration date must be in the future to stop immediate zombie creation
         parsed_date = datetime.strptime(expiry_date_str, "%Y-%m-%d").date()
         if parsed_date <= date.today():
             flash("Expiration date must be set to a future date.", "danger")
@@ -551,7 +522,6 @@ def create_option(parcel_id):
         flash("Strike, Premium, and Date must be valid values.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-    # CONTRACT SPAM FIX: Max 1 open contract per parcel
     spam_check = execute_query("SELECT COUNT(*) as c FROM Options WHERE parcel_id = %s AND status = 'Open'", (parcel_id,), fetch_all=False)
     if spam_check and spam_check['c'] > 0:
         flash("You already have an active contract for this property. Cancel it to create a new one.", "warning")
@@ -569,8 +539,6 @@ def create_option(parcel_id):
 
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-
-# MISSING CANCELLATION FIX
 @app.route("/cancel_parcel_options/<parcel_id>", methods=["POST"])
 @login_required
 def cancel_parcel_options(parcel_id):
@@ -581,7 +549,6 @@ def cancel_parcel_options(parcel_id):
     if success:
         flash("Your open contracts for this parcel have been successfully cancelled.", "info")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
-
 
 @app.route("/buy_parcel/<parcel_id>", methods=["POST"])
 @login_required
@@ -617,13 +584,11 @@ def buy_parcel(parcel_id):
             "UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s",
             (price, seller_id),
         ),
-        # DOUBLE SALE CRASH FIX: Prevents DB crash if property is bought twice in one day
         (
             "INSERT INTO Price_History (parcel_id, record_date, price_inr) VALUES (%s, CURDATE(), %s) "
             "ON DUPLICATE KEY UPDATE price_inr = VALUES(price_inr)",
             (parcel_id, price)
         ),
-        # NAKED OPTIONS FIX: Automatically kills contracts tied to land that was just sold
         (
             "UPDATE Options SET status = 'Cancelled (Asset Sold)' WHERE parcel_id = %s AND status = 'Open'",
             (parcel_id,)
@@ -635,7 +600,6 @@ def buy_parcel(parcel_id):
     else:
         flash("Transaction failed: Insufficient balance or race condition.", "danger")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
-
 
 @app.route("/options")
 @login_required
@@ -687,7 +651,6 @@ def list_options():
         total_pages=total_pages,
     )
 
-
 @app.route("/buy_option/<option_id>", methods=["POST"])
 @login_required
 def buy_option(option_id):
@@ -728,7 +691,6 @@ def buy_option(option_id):
         flash("Trade failed: Insufficient balance or race condition.", "danger")
     return redirect(url_for("list_options"))
 
-
 @app.route("/trades")
 @login_required
 def list_trades():
@@ -736,7 +698,6 @@ def list_trades():
     page = max(1, request.args.get("page", 1, type=int))
     per_page = 50
 
-    # TRADE HISTORY FIX: UNION ALL combines physical land sales and option contracts into one master timeline
     base_sql = """
     SELECT * FROM (
         SELECT T.trade_id, T.trade_date, O.option_id, P.address, P.city, T.trade_price_inr, 
@@ -782,7 +743,6 @@ def list_trades():
         total_pages=total_pages,
     )
 
-
 @app.route("/settle_options", methods=["GET", "POST"])
 @login_required
 def settle_options():
@@ -790,7 +750,6 @@ def settle_options():
         flash("Access Denied: Only Admins can run settlement.", "danger")
         return redirect(url_for("index"))
 
-    # ZOMBIE KILLER FIX: Before settling active trades, permanently kill any un-purchased expired contracts
     execute_query("UPDATE Options SET status = 'Expired (Unsold)' WHERE status = 'Open' AND expiry_date < CURDATE()")
 
     expired_options = execute_query(
@@ -806,7 +765,6 @@ def settle_options():
         return render_template("settlement.html", results=settlement_results)
 
     for option in expired_options:
-        # WASH TRADING FIX: Uses moving average of last 3 sales instead of 1 random spike
         history_data = execute_query(
             "SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 3",
             (option["parcel_id"],),
@@ -825,7 +783,6 @@ def settle_options():
         if settlement_price > strike:
             payout = settlement_price - strike
             status_update = "Expired ITM"
-            # INFINITE DEBT FIX: Uses GREATEST(0) so seller balance stops at 0 and doesn't go negative
             single_option_queries.append(
                 (
                     "UPDATE Users SET balance_cash = GREATEST(0, balance_cash - %s) WHERE user_id = %s",
@@ -863,7 +820,6 @@ def settle_options():
         flash("Settlement encountered errors on some options.", "warning")
     return render_template("settlement.html", results=settlement_results)
 
-
 @app.route("/deposit", methods=["POST"])
 @login_required
 def deposit_funds():
@@ -872,7 +828,6 @@ def deposit_funds():
     except (ValueError, TypeError):
         amount = 0
 
-    # INFINITE DEPOSIT FIX: Limits max transaction and limits total user wallet size
     if 0 < amount <= 10000000:
         if current_user.balance_cash + amount > 10000000000:
             flash("Deposit failed: Your wallet has reached the maximum permitted limit of 10 Billion INR.", "danger")
@@ -890,7 +845,6 @@ def deposit_funds():
         flash("Invalid amount. Deposits must be between ₹1 and ₹10,000,000.", "danger")
         
     return redirect(url_for("view_user", user_id=current_user.id))
-
 
 @app.route("/change_password", methods=["POST"])
 @login_required
@@ -922,7 +876,6 @@ def change_password():
     else:
         flash("Database error.", "danger")
     return redirect(url_for("view_user", user_id=current_user.id))
-
 
 if __name__ == "__main__":
     app.run(
