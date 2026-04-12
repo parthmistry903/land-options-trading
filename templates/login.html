@@ -19,7 +19,7 @@
                             <input type="text" name="username" class="form-control border-start-0 ps-0" placeholder="Enter username" required>
                         </div>
                     </div>
-                    <div class="mb-5">
+                    <div class="mb-4">
                         <label class="form-label text-muted small text-uppercase fw-bold">Password</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0">
@@ -30,6 +30,9 @@
                                 <i class="bi bi-eye text-muted" id="eyeIcon"></i>
                             </button>
                         </div>
+                    </div>
+                    <div class="mb-4 text-end">
+                        <a href="{{ url_for('forgot_password') }}" class="text-primary text-decoration-none small fw-bold">Forgot Password?</a>
                     </div>
                     <button type="submit" class="btn btn-primary w-100 py-3 fw-bold fs-5 shadow-sm">Login to Dashboard</button>
                 </form>
