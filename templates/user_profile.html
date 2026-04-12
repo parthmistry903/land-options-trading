@@ -1,0 +1,209 @@
+{% extends "base.html" %} {% block title %}User: {{ user.username }}{% endblock
+%} {% block content %}
+<div
+  class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"
+>
+  <div>
+    <div class="section-kicker mb-2">Profile</div>
+    <h1 class="hero-title display-6 fw-bold mb-2">
+      {{ user.full_name }}
+      <span class="text-muted fs-4">(@{{ user.username }})</span>
+    </h1>
+    <p class="text-muted mb-0">Account details, holdings, and trade history.</p>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header py-3 px-4 bg-transparent fw-bold">
+        User Details
+      </div>
+      <div class="card-body p-4 d-flex flex-column gap-4">
+        <div class="d-flex align-items-center gap-3">
+          <div
+            class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+            style="
+              width: 64px;
+              height: 64px;
+              background: linear-gradient(135deg, var(--brand), var(--brand2));
+            "
+          >
+            {{ user.username[:1] | upper }}
+          </div>
+          <div>
+            <div class="text-muted small text-uppercase fw-bold">
+              Account Balance
+            </div>
+            <h2 class="text-success fw-bold mb-0">
+              {{ user.balance_cash | inr }}
+            </h2>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="surface p-3">
+              <div class="text-muted small text-uppercase fw-bold">User ID</div>
+              <div class="fw-semibold">{{ user.user_id }}</div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="surface p-3">
+              <div class="text-muted small text-uppercase fw-bold">Email</div>
+              <div class="fw-semibold">{{ user.email }}</div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="surface p-3">
+              <div class="text-muted small text-uppercase fw-bold">
+                Member Since
+              </div>
+              <div class="fw-semibold">{{ user.registration_date | date }}</div>
+            </div>
+          </div>
+        </div>
+        {% if current_user.id == user.user_id %}
+        <div class="glow-line"></div>
+        <form
+          action="{{ url_for('deposit_funds') }}"
+          method="POST"
+          class="vstack gap-2"
+        >
+          <label class="form-label fw-semibold"
+            >Simulate Bank Transfer Deposit</label
+          >
+          <div class="input-group">
+            <span class="input-group-text">₹</span
+            ><input
+              type="number"
+              name="amount"
+              class="form-control"
+              placeholder="Enter amount..."
+              min="100"
+              required
+            /><button type="submit" class="btn btn-success px-4">Add</button>
+          </div>
+        </form>
+        <form
+          action="{{ url_for('change_password') }}"
+          method="POST"
+          class="vstack gap-2"
+        >
+          <label class="form-label fw-semibold">Change Password</label>
+          <input
+            type="password"
+            name="current_password"
+            class="form-control"
+            placeholder="Current Password"
+            required
+          />
+          <input
+            type="password"
+            name="new_password"
+            class="form-control"
+            placeholder="New Password"
+            required
+          />
+          <input
+            type="password"
+            name="confirm_new_password"
+            class="form-control"
+            placeholder="Confirm New Password"
+            required
+          />
+          <button type="submit" class="btn btn-warning fw-bold mt-1">
+            Update Password
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div
+        class="card-header py-3 px-4 d-flex justify-content-between align-items-center bg-transparent fw-bold"
+      >
+        <span>Owned Parcels</span
+        ><span class="badge text-bg-dark">{{ parcels|length }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for parcel in parcels %}
+          <li
+            class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 p-4"
+          >
+            <div>
+              <a
+                href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}"
+                class="fw-bold text-decoration-none d-block mb-1"
+                >{{ parcel.address }}</a
+              ><span class="badge text-bg-info text-dark"
+                ><i class="bi bi-geo-alt-fill me-1"></i>{{ parcel.city }}</span
+              >
+            </div>
+            <h5 class="text-success fw-bold mb-0">
+              {{ parcel.base_price_inr | inr }}
+            </h5>
+          </li>
+          {% else %}
+          <li class="list-group-item text-center text-muted p-5">
+            <i class="bi bi-house-x display-4 d-block mb-3 opacity-50"></i>No
+            parcels currently owned.
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mt-5">
+  <div class="d-flex align-items-end justify-content-between gap-3 mb-3">
+    <div>
+      <div class="section-kicker mb-2">History</div>
+      <h3 class="h4 fw-bold mb-0">Personal Trading History</h3>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4">Trade ID</th>
+            <th>Date</th>
+            <th>Option ID</th>
+            <th>Parcel Location</th>
+            <th>Trade Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trade in trades %}
+          <tr>
+            <td class="ps-4 font-monospace small text-muted">
+              {{ trade.trade_id }}
+            </td>
+            <td>{{ trade.trade_date | date }}</td>
+            <td>
+              <a
+                href="{{ url_for('list_options') }}?search={{ trade.option_id }}"
+                class="fw-bold"
+                >{{ trade.option_id }}</a
+              >
+            </td>
+            <td>{{ trade.address }}, {{ trade.city }}</td>
+            <td class="text-success fw-bold">
+              {{ trade.trade_price_inr | inr }}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-muted p-5">
+              No trades executed yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

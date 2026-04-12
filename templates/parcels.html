@@ -1,0 +1,204 @@
+{% extends "base.html" %} {% block title %}Parcels List{% endblock %} {% block
+content %}
+<div
+  class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"
+>
+  <div>
+    <div class="section-kicker mb-2">Inventory</div>
+    <h1 class="hero-title display-6 fw-bold mb-2">Land Parcels</h1>
+    <p class="text-muted mb-0">
+      Browse parcels by city, owner, and sale status.
+    </p>
+  </div>
+  <a href="{{ url_for('map_page') }}" class="btn btn-outline-primary px-4"
+    ><i class="bi bi-geo-alt me-2"></i>Open Map</a
+  >
+</div>
+<form
+  class="surface p-3 p-md-4 mb-4"
+  method="GET"
+  action="{{ url_for('list_parcels') }}"
+>
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-md-6">
+      <label for="search_input" class="form-label fw-semibold"
+        >Search Parcels</label
+      ><input
+        type="text"
+        class="form-control"
+        id="search_input"
+        name="search"
+        placeholder="Search by ID, city, or owner..."
+        value="{{ search_query }}"
+      />
+    </div>
+    <div class="col-12 col-md-3">
+      <label for="status_filter" class="form-label fw-semibold"
+        >Filter by Status</label
+      ><select class="form-select" id="status_filter" name="status">
+        <option value="All" {% if status_filter="" ="All" %}selected{% endif %}>
+          All Parcels
+        </option>
+        <option
+          value="For Sale"
+          {%
+          if
+          status_filter=""
+          ="For Sale"
+          %}selected{%
+          endif
+          %}
+        >
+          For Sale Only
+        </option>
+      </select>
+    </div>
+    <div class="col-12 col-md-3">
+      <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+    </div>
+  </div>
+</form>
+<div class="d-md-none vstack gap-3">
+  {% for parcel in parcels %}
+  <div class="mobile-card p-4">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+      <div>
+        <div class="label">Address</div>
+        <div class="value">{{ parcel.address }}</div>
+        <div class="text-muted small mt-1">
+          {{ parcel.city }}, {{ parcel.state }}
+        </div>
+      </div>
+      {% if parcel.is_for_sale %}<span class="badge text-bg-success"
+        >For Sale</span
+      >{% else %}<span class="badge text-bg-secondary">Not for Sale</span>{%
+      endif %}
+    </div>
+    <div class="row g-2 mt-3 small">
+      <div class="col-6">
+        <div class="label">Parcel ID</div>
+        <div class="value font-monospace">{{ parcel.parcel_id }}</div>
+      </div>
+      <div class="col-6">
+        <div class="label">Area</div>
+        <div class="value">{{ parcel.area_sqm }} sqm</div>
+      </div>
+      <div class="col-12">
+        <div class="label">Owner</div>
+        <a
+          href="{{ url_for('view_user', user_id=parcel.owner_user_id) }}"
+          class="text-decoration-none"
+          >{{ parcel.owner_name }}</a
+        >
+      </div>
+    </div>
+    <div class="d-grid mt-3">
+      <a
+        href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}"
+        class="btn btn-outline-primary"
+        ><i class="bi bi-box-arrow-up-right me-1"></i>View Details</a
+      >
+    </div>
+  </div>
+  {% else %}
+  <div class="mobile-card p-5 text-center text-muted">No parcels found.</div>
+  {% endfor %}
+</div>
+<div class="card d-none d-md-block">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th class="py-3 ps-4">ID</th>
+          <th class="py-3">Address</th>
+          <th class="py-3">City</th>
+          <th class="py-3">State</th>
+          <th class="py-3">Area (sqm)</th>
+          <th class="py-3">Owner</th>
+          <th class="py-3">Status</th>
+          <th class="py-3 pe-4 text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for parcel in parcels %}
+        <tr>
+          <td class="ps-4 font-monospace small text-muted">
+            {{ parcel.parcel_id }}
+          </td>
+          <td class="fw-semibold">{{ parcel.address }}</td>
+          <td><strong>{{ parcel.city }}</strong></td>
+          <td>{{ parcel.state }}</td>
+          <td>{{ parcel.area_sqm }}</td>
+          <td>
+            <a href="{{ url_for('view_user', user_id=parcel.owner_user_id) }}"
+              >{{ parcel.owner_name }}</a
+            >
+          </td>
+          <td>
+            {% if parcel.is_for_sale %}<span class="badge text-bg-success"
+              >For Sale</span
+            >{% else %}<span class="badge text-bg-secondary">Not for Sale</span
+            >{% endif %}
+          </td>
+          <td class="pe-3 text-end">
+            <a
+              href="{{ url_for('view_parcel', parcel_id=parcel.parcel_id) }}"
+              class="btn btn-sm btn-outline-primary"
+              >View Details</a
+            >
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted p-5">
+            No parcels found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<nav aria-label="Page navigation" class="mt-4">
+  <ul class="pagination justify-content-center flex-wrap gap-1">
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_parcels', page=1, status=status_filter, search=search_query) }}"
+        >&laquo; First</a
+      >
+    </li>
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_parcels', page=page-1, status=status_filter, search=search_query) }}"
+        >&lsaquo; Prev</a
+      >
+    </li>
+    {% for p in range(1, total_pages + 1) %}{% if p >= page - 2 and p <= page +
+    2 %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_parcels', page=p, status=status_filter, search=search_query) }}"
+        >{{ p }}</a
+      >
+    </li>
+    {% endif %}{% endfor %}
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_parcels', page=page+1, status=status_filter, search=search_query) }}"
+        >Next &rsaquo;</a
+      >
+    </li>
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_parcels', page=total_pages, status=status_filter, search=search_query) }}"
+        >Last &raquo;</a
+      >
+    </li>
+  </ul>
+</nav>
+{% endblock %}
