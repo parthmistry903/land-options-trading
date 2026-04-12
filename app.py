@@ -104,6 +104,40 @@ def login():
 
     return render_template("login.html")
 
+@app.route("/forgot_password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        new_password = request.form.get("new_password")
+        confirm_password = request.form.get("confirm_password")
+
+        if new_password != confirm_password:
+            flash("New passwords do not match.", "danger")
+            return redirect(url_for("forgot_password"))
+
+        user_data = execute_query(
+            "SELECT user_id FROM Users WHERE username = %s AND email = %s",
+            (username, email),
+            fetch_all=False
+        )
+
+        if user_data:
+            hashed_pw = generate_password_hash(new_password)
+            execute_query(
+                "UPDATE Users SET password_hash = %s WHERE user_id = %s",
+                (hashed_pw, user_data["user_id"])
+            )
+            flash("Password successfully reset! You can now log in.", "success")
+            return redirect(url_for("login"))
+        else:
+            flash("Invalid Username or Email combination.", "danger")
+
+    return render_template("forgot_password.html")
+
 @app.route("/logout")
 @login_required
 def logout():
