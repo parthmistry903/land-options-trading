@@ -1,0 +1,158 @@
+{% extends "base.html" %} {% block title %}Register - LandOptions{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="row g-0 w-100 auth-card">
+    <div class="col-12 col-lg-5 d-none d-lg-block auth-panel p-5">
+      <div class="h-100 d-flex flex-column justify-content-between">
+        <div>
+          <div class="section-kicker mb-3 text-white">Join the network</div>
+          <h1 class="display-4 fw-black hero-title mb-4">
+            Build your portfolio from day one.
+          </h1>
+          <p class="lead mb-4">
+            Create an account to trade parcels, open contracts, and track every
+            move.
+          </p>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="stat-box p-3">
+              <div class="fw-bold">Ownership</div>
+              <div class="small">Track parcels cleanly.</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box p-3">
+              <div class="fw-bold">Liquidity</div>
+              <div class="small">Move in options too.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 rounded-0 h-100">
+        <div class="card-body p-4 p-md-5">
+          <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+              <div class="section-kicker mb-2">Start here</div>
+              <h2 class="fw-bold mb-0">Create Account</h2>
+            </div>
+            <span class="badge text-bg-success">New</span>
+          </div>
+          <form method="POST" class="vstack gap-3">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Full Name</label
+                ><input
+                  type="text"
+                  name="full_name"
+                  class="form-control"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Username</label>
+                <div class="input-group">
+                  <span class="input-group-text">@</span
+                  ><input
+                    type="text"
+                    name="username"
+                    class="form-control"
+                    placeholder="johndoe123"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="form-label fw-semibold">Email Address</label>
+              <div class="input-group">
+                <span class="input-group-text"
+                  ><i class="bi bi-envelope"></i></span
+                ><input
+                  type="email"
+                  name="email"
+                  class="form-control"
+                  placeholder="john@example.com"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label class="form-label fw-semibold">Password</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-lock"></i></span
+                ><input
+                  type="password"
+                  name="password"
+                  id="passwordInput"
+                  class="form-control"
+                  placeholder="Create a strong password"
+                  required
+                /><button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  onclick="toggleVisibility('passwordInput', 'eyeIcon1')"
+                >
+                  <i class="bi bi-eye" id="eyeIcon1"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label fw-semibold">Confirm Password</label>
+              <div class="input-group">
+                <span class="input-group-text"
+                  ><i class="bi bi-shield-check"></i></span
+                ><input
+                  type="password"
+                  name="confirm_password"
+                  id="confirmPasswordInput"
+                  class="form-control"
+                  placeholder="Repeat password"
+                  required
+                /><button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  onclick="toggleVisibility('confirmPasswordInput', 'eyeIcon2')"
+                >
+                  <i class="bi bi-eye" id="eyeIcon2"></i>
+                </button>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success py-3 fw-bold">
+              Create Account
+            </button>
+          </form>
+          <div class="text-center mt-4 pt-4 border-top">
+            <p class="text-muted mb-0">
+              Already have an account?
+              <a
+                href="{{ url_for('login') }}"
+                class="fw-bold text-decoration-none"
+                >Login here</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function toggleVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === "password") {
+      input.type = "text";
+      icon.classList.remove("bi-eye");
+      icon.classList.add("bi-eye-slash");
+    } else {
+      input.type = "password";
+      icon.classList.remove("bi-eye-slash");
+      icon.classList.add("bi-eye");
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %} {% block title %}Users List{% endblock %} {% block
+content %}
+<div
+  class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"
+>
+  <div>
+    <div class="section-kicker mb-2">Admin directory</div>
+    <h1 class="hero-title display-6 fw-bold mb-2">Network Users</h1>
+    <p class="text-muted mb-0">
+      Search, inspect, or manage accounts from one place.
+    </p>
+  </div>
+  {% if current_user.role == 'admin' %}<a
+    href="{{ url_for('add_user') }}"
+    class="btn btn-success px-4"
+    ><i class="bi bi-person-plus-fill me-2"></i>Add New User</a
+  >{% endif %}
+</div>
+<form
+  class="surface p-3 p-md-4 mb-4"
+  method="GET"
+  action="{{ url_for('list_users') }}"
+>
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-md-10">
+      <label for="search_input" class="form-label fw-semibold"
+        >Search Users Database</label
+      >
+      <input
+        type="text"
+        class="form-control"
+        id="search_input"
+        name="search"
+        placeholder="Search by ID, Username, Name, or Email..."
+        value="{{ search_query }}"
+      />
+    </div>
+    <div class="col-12 col-md-2">
+      <button type="submit" class="btn btn-primary w-100">Search</button>
+    </div>
+  </div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th class="py-3 ps-4">System ID</th>
+          <th class="py-3">Username</th>
+          <th class="py-3">Full Name</th>
+          <th class="py-3">Account Balance</th>
+          <th class="py-3 text-end pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td class="ps-4 font-monospace small text-muted">
+            {{ user.user_id }}
+          </td>
+          <td class="fw-bold">@{{ user.username }}</td>
+          <td>{{ user.full_name }}</td>
+          <td class="text-success fw-bold">{{ user.balance_cash | inr }}</td>
+          <td class="text-end pe-3">
+            <a
+              href="{{ url_for('view_user', user_id=user.user_id) }}"
+              class="btn btn-sm btn-outline-primary me-2"
+              ><i class="bi bi-eye me-1"></i>View</a
+            >
+            {% if current_user.role == 'admin' %}
+            <form
+              method="POST"
+              action="{{ url_for('delete_user', user_id=user.user_id) }}"
+              class="d-inline"
+              onsubmit="return confirm('Are you sure you want to delete @{{ user.username }}?');"
+            >
+              <button
+                type="submit"
+                class="btn btn-sm btn-outline-danger"
+                {%
+                if
+                user.user_id=""
+                ="current_user.id"
+                %}disabled
+                title="Cannot delete yourself"
+                {%
+                endif
+                %}
+              >
+                <i class="bi bi-trash3 me-1"></i>Delete
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-muted p-5">
+            No users found matching that search criteria.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<nav aria-label="Page navigation" class="mt-4">
+  <ul class="pagination justify-content-center flex-wrap gap-1">
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_users', page=1, search=search_query) }}"
+        >&laquo; First</a
+      >
+    </li>
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_users', page=page-1, search=search_query) }}"
+        >&lsaquo; Prev</a
+      >
+    </li>
+    {% for p in range(1, total_pages + 1) %}{% if p >= page - 2 and p <= page +
+    2 %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_users', page=p, search=search_query) }}"
+        >{{ p }}</a
+      >
+    </li>
+    {% endif %}{% endfor %}
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_users', page=page+1, search=search_query) }}"
+        >Next &rsaquo;</a
+      >
+    </li>
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a
+        class="page-link"
+        href="{{ url_for('list_users', page=total_pages, search=search_query) }}"
+        >Last &raquo;</a
+      >
+    </li>
+  </ul>
+</nav>
+{% endblock %}
