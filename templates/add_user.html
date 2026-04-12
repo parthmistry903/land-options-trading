@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Add User{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-12 col-lg-8">
+<div class="card auth-card mt-4">
+<div class="card-body p-4 p-md-5">
+<div class="d-flex align-items-center justify-content-between mb-4">
+<div><div class="section-kicker mb-2">Admin action</div><h2 class="fw-bold mb-0">Manual User Creation</h2></div>
+<span class="badge text-bg-dark">Admin</span>
+</div>
+<form method="POST" class="vstack gap-3">
+<div>
+<label for="user_id" class="form-label fw-semibold">User ID (Custom Override)</label>
+<input type="text" class="form-control font-monospace" id="user_id" name="user_id" placeholder="e.g., U001" required>
+<div class="form-text text-muted small mt-1">Use a unique ID that does not collide with auto-generated IDs.</div>
+</div>
+<div class="row g-3">
+<div class="col-12 col-md-6"><label for="full_name" class="form-label fw-semibold">Full Legal Name</label><input type="text" class="form-control" id="full_name" name="full_name" required></div>
+<div class="col-12 col-md-6"><label for="username" class="form-label fw-semibold">Platform Username</label><input type="text" class="form-control" id="username" name="username" required></div>
+</div>
+<div><label for="email" class="form-label fw-semibold">Registered Email</label><input type="email" class="form-control" id="email" name="email" required></div>
+<div>
+<label for="balance_cash" class="form-label fw-semibold text-success">Starting Bankroll (INR)</label>
+<div class="input-group"><span class="input-group-text">₹</span><input type="number" class="form-control text-success fw-bold" id="balance_cash" name="balance_cash" value="0" required></div>
+</div>
+<div>
+<label class="form-label fw-semibold">Temporary Password</label>
+<div class="input-group">
+<span class="input-group-text"><i class="bi bi-lock"></i></span>
+<input type="password" name="password" id="passwordInput" class="form-control" placeholder="Set temporary password" required>
+<button class="btn btn-outline-secondary" type="button" id="togglePassword"><i class="bi bi-eye" id="eyeIcon"></i></button>
+</div>
+</div>
+<div class="d-flex gap-2 pt-3">
+<button type="submit" class="btn btn-success flex-fill py-2 fw-bold">Create Profile</button>
+<a href="{{ url_for('list_users') }}" class="btn btn-outline-secondary flex-fill text-decoration-none py-2 fw-bold">Cancel</a>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<script>
+document.getElementById('togglePassword').addEventListener('click', function () {
+const passwordInput = document.getElementById('passwordInput');
+const eyeIcon = document.getElementById('eyeIcon');
+if (passwordInput.type === 'password') { passwordInput.type = 'text'; eyeIcon.classList.replace('bi-eye', 'bi-eye-slash'); } 
+else { passwordInput.type = 'password'; eyeIcon.classList.replace('bi-eye-slash', 'bi-eye'); }
+});
+</script>
+{% endblock %}
