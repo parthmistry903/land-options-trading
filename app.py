@@ -577,17 +577,14 @@ def deposit_funds():
         amount = float(request.form.get("amount", 0))
     except (ValueError, TypeError):
         amount = 0
-    if 0 < amount <= 10000000:
-        if current_user.balance_cash + amount > 10000000000:
-            flash("Deposit failed: Your wallet has reached the maximum permitted limit of 10 Billion INR.", "danger")
+    if amount > 0:
+        if execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (amount, current_user.id)):
+            flash(f"Deposited INR {amount:,.2f}.", "success")
+            current_user.balance_cash += amount
         else:
-            if execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (amount, current_user.id)):
-                flash(f"Deposited INR {amount:,.2f}.", "success")
-                current_user.balance_cash += amount
-            else:
-                flash("Database error.", "danger")
+            flash("Database error.", "danger")
     else:
-        flash("Invalid amount. Deposits must be between ₹1 and ₹10,000,000.", "danger")
+        flash("Invalid amount. Deposit must be greater than 0.", "danger")
     return redirect(url_for("view_user", user_id=current_user.id))
 
 
