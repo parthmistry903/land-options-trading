@@ -434,7 +434,9 @@ def buy_parcel(parcel_id):
     if not is_for_sale or buyer_id == parcel["owner_user_id"]:
         flash("Transaction failed: Asset not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
-    price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"]
+    
+    price = float(parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"])
+    
     if current_user.balance_cash < price:
         flash(f"Transaction failed: Insufficient liquid capital. You require {format_inr(price)}.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
@@ -492,7 +494,9 @@ def buy_option(option_id):
     if not option or option["status"] != "Open" or buyer_id == option["seller_user_id"]:
         flash("Trade failed: Contract unavailable or expired.", "danger")
         return redirect(url_for("list_options"))
-    premium = option["premium_inr"]
+    
+    premium = float(option["premium_inr"])
+    
     if current_user.balance_cash < premium:
         flash(f"Trade failed: Insufficient liquid capital. You require {format_inr(premium)}.", "danger")
         return redirect(url_for("list_options"))
@@ -547,9 +551,11 @@ def settle_options():
         return render_template("settlement.html", results=settlement_results)
     for option in expired_options:
         history_data = execute_query("SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 3", (option["parcel_id"],), fetch_all=True)
-        settlement_price = sum(h["price_inr"] for h in history_data) / len(history_data) if history_data else option["base_price_inr"]
-        strike = option["strike_inr"]
-        payout = settlement_price - strike if settlement_price > strike else 0
+        
+        settlement_price = float(sum(h["price_inr"] for h in history_data) / len(history_data)) if history_data else float(option["base_price_inr"])
+        strike = float(option["strike_inr"])
+        payout = float(settlement_price - strike) if settlement_price > strike else 0.0
+        
         status_update = "Expired ITM" if settlement_price > strike else "Expired OTM"
         queries = []
         if payout > 0:
