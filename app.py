@@ -23,7 +23,7 @@ class User(UserMixin):
         self.id = user_data["user_id"]
         self.username = user_data["username"]
         self.full_name = user_data["full_name"]
-        self.balance_cash = user_data["balance_cash"]
+        self.balance_cash = float(user_data["balance_cash"]) if user_data["balance_cash"] is not None else 0.0
         self.role = user_data.get("role", "user")
 
 
