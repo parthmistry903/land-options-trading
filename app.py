@@ -17,21 +17,18 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 login_manager.login_message_category = "warning"
 
-
 class User(UserMixin):
     def __init__(self, user_data):
         self.id = user_data["user_id"]
         self.username = user_data["username"]
         self.full_name = user_data["full_name"]
-        self.balance_cash = float(user_data["balance_cash"]) if user_data["balance_cash"] is not None else 0.0
+        self.balance_cash = float(user_data["balance_cash"]) if user_data.get("balance_cash") is not None else 0.0
         self.role = user_data.get("role", "user")
-
 
 @login_manager.user_loader
 def load_user(user_id):
     user_data = execute_query("SELECT * FROM Users WHERE user_id = %s", (user_id,), fetch_all=False)
     return User(user_data) if user_data else None
-
 
 def generate_unique_id(prefix, table, column_name):
     while True:
@@ -39,7 +36,6 @@ def generate_unique_id(prefix, table, column_name):
         check = execute_query(f"SELECT 1 FROM {table} WHERE {column_name} = %s", (new_id,), fetch_all=False)
         if not check:
             return new_id
-
 
 def format_inr(amount):
     if amount is None or amount == "":
@@ -50,7 +46,6 @@ def format_inr(amount):
     except (ValueError, TypeError, decimal.InvalidOperation):
         return "₹0"
 
-
 def format_date(d):
     if not d:
         return "N/A"
@@ -58,10 +53,8 @@ def format_date(d):
         return d.strftime("%Y-%m-%d")
     return str(d)
 
-
 app.jinja_env.filters["inr"] = format_inr
 app.jinja_env.filters["date"] = format_date
-
 
 @app.route("/")
 @login_required
@@ -73,6 +66,7 @@ def index():
     stats_h = execute_query("SELECT COUNT(*) as count FROM Price_History", fetch_all=False)
     stats_o = execute_query("SELECT COUNT(*) as count FROM Options", fetch_all=False)
     stats_t = execute_query("SELECT (SELECT COUNT(*) FROM Trades) + (SELECT COUNT(*) FROM Price_History) as count", fetch_all=False)
+    
     stats = {
         "users_count": stats_u.get("count", 0) if stats_u else 0,
         "parcels_count": stats_p.get("count", 0) if stats_p else 0,
@@ -81,7 +75,6 @@ def index():
         "trades_count": stats_t.get("count", 0) if stats_t else 0,
     }
     return render_template("dashboard.html", users=users or [], open_options_count=open_count_res.get("count", 0) if open_count_res else 0, stats=stats)
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -111,7 +104,6 @@ def register():
             return redirect(url_for("login"))
     return render_template("register.html")
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -125,7 +117,6 @@ def login():
             return redirect(next_p if next_p else url_for("index"))
         flash("Authentication Failure.", "danger")
     return render_template("login.html")
-
 
 @app.route("/forgot_password", methods=["GET", "POST"])
 def forgot_password():
@@ -147,13 +138,11 @@ def forgot_password():
         flash("Entity Identification Failed.", "danger")
     return render_template("forgot_password.html")
 
-
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
-
 
 def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
     features = []
@@ -169,7 +158,18 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
             lon = float(raw_lon)
         except (ValueError, TypeError):
             continue
-        props = {k: v for k, v in r.items() if k not in (lat_key, lon_key)}
+        
+        props = {}
+        for k, v in r.items():
+            if k in (lat_key, lon_key):
+                continue
+            if isinstance(v, decimal.Decimal):
+                props[k] = float(v)
+            elif isinstance(v, (datetime, date)):
+                props[k] = v.strftime("%Y-%m-%d")
+            else:
+                props[k] = v
+                
         features.append(
             {
                 "type": "Feature",
@@ -179,14 +179,12 @@ def rows_to_geojson(rows, lat_key="latitude", lon_key="longitude"):
         )
     return {"type": "FeatureCollection", "features": features}
 
-
 @app.route("/map")
 @login_required
 def map_page():
     cities_data = execute_query("SELECT DISTINCT city FROM Parcels WHERE city IS NOT NULL", fetch_all=True)
     cities = [c["city"] for c in cities_data] if cities_data else []
     return render_template("map.html", cities=cities, current_user_id=current_user.id)
-
 
 @app.route("/api/parcels_geojson")
 @login_required
@@ -200,14 +198,12 @@ def api_parcels_geojson():
     rows = execute_query(sql, tuple(params), fetch_all=True)
     return jsonify(rows_to_geojson(rows))
 
-
 @app.route("/api/options_geojson")
 @login_required
 def api_options_geojson():
     sql = "SELECT O.*, P.address, P.city, P.latitude, P.longitude, U_Seller.username as seller_name, U_Buyer.username as buyer_name FROM Options O JOIN Parcels P ON O.parcel_id = P.parcel_id LEFT JOIN Users U_Seller ON O.seller_user_id = U_Seller.user_id LEFT JOIN Users U_Buyer ON O.buyer_user_id = U_Buyer.user_id WHERE P.latitude IS NOT NULL AND P.longitude IS NOT NULL AND O.status = 'Open' AND O.expiry_date >= CURDATE()"
     rows = execute_query(sql, fetch_all=True)
     return jsonify(rows_to_geojson(rows))
-
 
 @app.route("/api/heat_by_city")
 @login_required
@@ -216,8 +212,18 @@ def api_heat_by_city():
     rows = execute_query(sql, fetch_all=True)
     if not rows:
         return jsonify([])
-    return jsonify(rows)
-
+    clean_rows = []
+    for r in rows:
+        clean_r = {}
+        for k, v in r.items():
+            if isinstance(v, decimal.Decimal):
+                clean_r[k] = float(v)
+            elif isinstance(v, (datetime, date)):
+                clean_r[k] = str(v)
+            else:
+                clean_r[k] = v
+        clean_rows.append(clean_r)
+    return jsonify(clean_rows)
 
 @app.route("/users")
 @login_required
@@ -244,7 +250,6 @@ def list_users():
     users = execute_query(sql, tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("users.html", users=users or [], search_query=search_query, page=page, total_pages=total_pages)
 
-
 @app.route("/users/<user_id>")
 @login_required
 def view_user(user_id):
@@ -259,7 +264,6 @@ def view_user(user_id):
     trades = execute_query("SELECT T.trade_id, T.trade_date, O.option_id, P.address, P.city, T.quantity, T.trade_price_inr FROM Trades T JOIN Options O ON T.option_id = O.option_id JOIN Parcels P ON O.parcel_id = P.parcel_id WHERE T.buyer_user_id = %s OR T.seller_user_id = %s ORDER BY T.trade_date DESC", (user_id, user_id), fetch_all=True)
     return render_template("user_profile.html", user=user, parcels=parcels or [], trades=trades or [])
 
-
 @app.route("/users/add", methods=["GET", "POST"])
 @login_required
 def add_user():
@@ -271,7 +275,10 @@ def add_user():
         username = request.form["username"]
         full_name = request.form["full_name"]
         email = request.form["email"]
-        balance = request.form["balance_cash"]
+        try:
+            balance = float(request.form["balance_cash"])
+        except (ValueError, TypeError):
+            balance = 0.0
         password = request.form["password"]
         hashed_pw = generate_password_hash(password)
         sql = "INSERT INTO Users (user_id, username, full_name, email, registration_date, balance_cash, password_hash, role) VALUES (%s, %s, %s, %s, CURDATE(), %s, %s, 'user')"
@@ -281,7 +288,6 @@ def add_user():
         else:
             flash("Error adding user. User ID or Username/Email might already exist.", "danger")
     return render_template("add_user.html")
-
 
 @app.route("/users/delete/<user_id>", methods=["POST"])
 @login_required
@@ -300,7 +306,6 @@ def delete_user(user_id):
     else:
         flash(f"Error deleting User ID {user_id}.", "danger")
     return redirect(url_for("list_users"))
-
 
 @app.route("/parcels")
 @login_required
@@ -325,7 +330,6 @@ def list_parcels():
     parcels = execute_query(sql, tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("parcels.html", parcels=parcels or [], status_filter=status_filter, search_query=search_query, page=page, total_pages=total_pages)
 
-
 @app.route("/parcels/<parcel_id>")
 @login_required
 def view_parcel(parcel_id):
@@ -333,27 +337,38 @@ def view_parcel(parcel_id):
     if not parcel:
         return redirect(url_for("list_parcels"))
     history = execute_query("SELECT record_date, price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date ASC", (parcel_id,), fetch_all=True)
+    
+    if history:
+        for h in history:
+            h["price_inr"] = float(h["price_inr"])
+            
     analytics = get_land_price_analytics(history)
     dates = [r["record_date"].strftime("%b %d, %Y") for r in history] if history else []
-    if analytics["forecasted_price"] and history:
+    if analytics.get("forecasted_price") is not None and history:
         dates.append((history[-1]["record_date"] + pd.Timedelta(days=30)).strftime("%b %d, %Y"))
+        
+    forecast_val = analytics.get("forecasted_price")
+    clean_forecast = float(forecast_val) if forecast_val is not None else None
+    
     chart_data = {
         "dates": dates,
         "actual": [r["price_inr"] for r in history] if history else [],
-        "trend": [p["price"] for p in analytics["regression_line"]] if "regression_line" in analytics else [],
-        "ma": [p["price"] for p in analytics["moving_average"]] if "moving_average" in analytics else [],
-        "forecast": analytics.get("forecasted_price"),
+        "trend": [float(p["price"]) for p in analytics.get("regression_line", [])],
+        "ma": [float(p["price"]) for p in analytics.get("moving_average", [])],
+        "forecast": clean_forecast,
     }
-    active_price = parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else (history[-1]["price_inr"] if history else parcel["base_price_inr"])
+    
+    lp = parcel.get("listing_price_inr")
+    active_price = float(lp) if lp is not None else (history[-1]["price_inr"] if history else float(parcel["base_price_inr"]))
+    
     return render_template(
         "parcel_detail.html",
         parcel=parcel,
-        current_price=history[-1]["price_inr"] if history else parcel["base_price_inr"],
-        forecasted_price=analytics.get("forecasted_price"),
+        current_price=history[-1]["price_inr"] if history else float(parcel["base_price_inr"]),
+        forecasted_price=clean_forecast,
         chart_data=chart_data,
         active_price=active_price,
     )
-
 
 @app.route("/toggle_sale/<parcel_id>", methods=["POST"])
 @login_required
@@ -378,7 +393,6 @@ def toggle_sale(parcel_id):
         execute_query("UPDATE Parcels SET is_for_sale = %s, listing_price_inr = NULL WHERE parcel_id = %s", (new_status, parcel_id))
         flash("Parcel successfully removed from sale.", "info")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
-
 
 @app.route("/create_option/<parcel_id>", methods=["POST"])
 @login_required
@@ -413,14 +427,12 @@ def create_option(parcel_id):
         flash("Database Error: Could not create the contract.", "danger")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
 
-
 @app.route("/cancel_parcel_options/<parcel_id>", methods=["POST"])
 @login_required
 def cancel_parcel_options(parcel_id):
     if execute_query("UPDATE Options SET status = 'Cancelled by Owner' WHERE parcel_id = %s AND seller_user_id = %s AND status = 'Open'", (parcel_id, current_user.id)):
         flash("Your open contracts for this parcel have been successfully cancelled.", "info")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
-
 
 @app.route("/buy_parcel/<parcel_id>", methods=["POST"])
 @login_required
@@ -435,7 +447,8 @@ def buy_parcel(parcel_id):
         flash("Transaction failed: Asset not available or already owned.", "danger")
         return redirect(url_for("view_parcel", parcel_id=parcel_id))
     
-    price = float(parcel.get("listing_price_inr") if parcel.get("listing_price_inr") else parcel["base_price_inr"])
+    lp = parcel.get("listing_price_inr")
+    price = float(lp) if lp is not None else float(parcel["base_price_inr"])
     
     if current_user.balance_cash < price:
         flash(f"Transaction failed: Insufficient liquid capital. You require {format_inr(price)}.", "danger")
@@ -454,7 +467,6 @@ def buy_parcel(parcel_id):
     else:
         flash("Transaction failed: Ledger desync or race condition detected.", "danger")
     return redirect(url_for("view_parcel", parcel_id=parcel_id))
-
 
 @app.route("/options")
 @login_required
@@ -485,7 +497,6 @@ def list_options():
     options = execute_query(base_sql + where_sql + " ORDER BY O.expiry_date ASC LIMIT %s OFFSET %s", tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("options.html", options=options or [], status_filter=status_filter, search_query=search_query, page=page, total_pages=total_pages)
 
-
 @app.route("/buy_option/<option_id>", methods=["POST"])
 @login_required
 def buy_option(option_id):
@@ -513,7 +524,6 @@ def buy_option(option_id):
         flash("Trade failed: Ledger desync or race condition detected.", "danger")
     return redirect(url_for("list_options"))
 
-
 @app.route("/trades")
 @login_required
 def list_trades():
@@ -535,7 +545,6 @@ def list_trades():
     trades = execute_query(base_sql + where_sql + " ORDER BY trade_date DESC LIMIT %s OFFSET %s", tuple(params) + (per_page, offset), fetch_all=True)
     return render_template("trades.html", trades=trades or [], search_query=search_query, page=page, total_pages=total_pages)
 
-
 @app.route("/settle_options", methods=["GET", "POST"])
 @login_required
 def settle_options():
@@ -552,7 +561,7 @@ def settle_options():
     for option in expired_options:
         history_data = execute_query("SELECT price_inr FROM Price_History WHERE parcel_id = %s ORDER BY record_date DESC LIMIT 3", (option["parcel_id"],), fetch_all=True)
         
-        settlement_price = float(sum(h["price_inr"] for h in history_data) / len(history_data)) if history_data else float(option["base_price_inr"])
+        settlement_price = float(sum(float(h["price_inr"]) for h in history_data) / len(history_data)) if history_data else float(option["base_price_inr"])
         strike = float(option["strike_inr"])
         payout = float(settlement_price - strike) if settlement_price > strike else 0.0
         
@@ -577,14 +586,13 @@ def settle_options():
         flash("Settlement encountered errors on some options.", "warning")
     return render_template("settlement.html", results=settlement_results)
 
-
 @app.route("/deposit", methods=["POST"])
 @login_required
 def deposit_funds():
     try:
         amount = float(request.form.get("amount", 0))
     except (ValueError, TypeError):
-        amount = 0
+        amount = 0.0
     if amount > 0:
         if execute_query("UPDATE Users SET balance_cash = balance_cash + %s WHERE user_id = %s", (amount, current_user.id)):
             flash(f"Deposited INR {amount:,.2f}.", "success")
@@ -594,7 +602,6 @@ def deposit_funds():
     else:
         flash("Invalid amount. Deposit must be greater than 0.", "danger")
     return redirect(url_for("view_user", user_id=current_user.id))
-
 
 @app.route("/change_password", methods=["POST"])
 @login_required
@@ -611,7 +618,6 @@ def change_password():
     else:
         flash("Database error.", "danger")
     return redirect(url_for("view_user", user_id=current_user.id))
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=os.environ.get("FLASK_DEBUG", "False").lower() == "true")
