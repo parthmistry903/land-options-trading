@@ -7,6 +7,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 import os
+import decimal
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkeyforlandoptions")
@@ -44,8 +45,9 @@ def format_inr(amount):
     if amount is None or amount == "":
         return "₹0"
     try:
-        return f"INR {float(amount):,.0f}"
-    except (ValueError, TypeError):
+        val = float(amount)
+        return f"INR {val:,.0f}"
+    except (ValueError, TypeError, decimal.InvalidOperation):
         return "₹0"
 
 
